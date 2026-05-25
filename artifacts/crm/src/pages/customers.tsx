@@ -1,0 +1,373 @@
+import { useEffect, useState } from "react";
+import Layout from "@/components/Layout";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer, Customer } from "@/lib/firestore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Plus, Search, Phone, MessageCircle, Pencil, Trash2, User, Mail, MapPin, FileText, Users,
+} from "lucide-react";
+
+type FormData = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  notes: string;
+};
+
+const emptyForm: FormData = { name: "", email: "", phone: "", address: "", notes: "" };
+
+export default function CustomersPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [form, setForm] = useState<FormData>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  async function loadCustomers() {
+    if (!user?.companyId) return;
+    setLoading(true);
+    try {
+      const data = await getCustomers(user.companyId);
+      setCustomers(data);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadCustomers(); }, [user?.companyId]);
+
+  function openAdd() {
+    setEditCustomer(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  }
+
+  function openEdit(c: Customer) {
+    setEditCustomer(c);
+    setForm({
+      name: c.name,
+      email: c.email,
+      phone: c.phone || "",
+      address: c.address || "",
+      notes: c.notes || "",
+    });
+    setDialogOpen(true);
+  }
+
+  async function handleSave() {
+    if (!user?.companyId) return;
+    if (!form.name.trim() || !form.email.trim()) {
+      toast({ title: "Validation", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editCustomer) {
+        await updateCustomer(editCustomer.id, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || undefined,
+          address: form.address.trim() || undefined,
+          notes: form.notes.trim() || undefined,
+        });
+        toast({ title: "Customer updated" });
+      } else {
+        await addCustomer({
+          companyId: user.companyId,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || undefined,
+          address: form.address.trim() || undefined,
+          notes: form.notes.trim() || undefined,
+        });
+        toast({ title: "Customer added" });
+      }
+      setDialogOpen(false);
+      loadCustomers();
+    } catch {
+      toast({ title: "Error", description: "Could not save customer.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    try {
+      await deleteCustomer(deleteId);
+      toast({ title: "Customer deleted" });
+      setDeleteId(null);
+      loadCustomers();
+    } catch {
+      toast({ title: "Error", description: "Could not delete customer.", variant: "destructive" });
+    }
+  }
+
+  const filtered = customers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.email.toLowerCase().includes(search.toLowerCase()) ||
+      (c.phone || "").includes(search)
+  );
+
+  return (
+    <Layout>
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {customers.length} {customers.length === 1 ? "customer" : "customers"} total
+            </p>
+          </div>
+          <Button onClick={openAdd} className="gap-2 shrink-0" data-testid="button-add-customer">
+            <Plus className="w-4 h-4" />
+            Add Customer
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-5">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by name, email, or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-customer"
+          />
+        </div>
+
+        {/* Table / Cards */}
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="rounded-xl border p-4 flex items-center gap-4">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-12 text-center">
+            <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+            <h3 className="font-semibold">
+              {search ? "No customers found" : "No customers yet"}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {search ? "Try a different search term." : "Add your first customer to get started."}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customer</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Phone</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">Address</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-customer-${c.id}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-primary">
+                              {c.name[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{c.name}</p>
+                            <p className="text-xs text-muted-foreground md:hidden">{c.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{c.email}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{c.phone || "—"}</td>
+                      <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground max-w-xs truncate">{c.address || "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          {c.phone && (
+                            <a
+                              href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="WhatsApp"
+                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
+                              data-testid={`button-whatsapp-${c.id}`}
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
+                          {c.phone && (
+                            <a
+                              href={`tel:${c.phone}`}
+                              title="Call"
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                              data-testid={`button-call-${c.id}`}
+                            >
+                              <Phone className="w-4 h-4" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => openEdit(c)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            data-testid={`button-edit-customer-${c.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(c.id)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            data-testid={`button-delete-customer-${c.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
+            <DialogDescription>
+              {editCustomer ? "Update customer details below." : "Fill in the details for the new customer."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-name">Name *</Label>
+              <Input
+                id="c-name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Jane Smith"
+                data-testid="input-customer-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-email">Email *</Label>
+              <Input
+                id="c-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="jane@example.com"
+                data-testid="input-customer-email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-phone">Phone</Label>
+              <Input
+                id="c-phone"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+1 555 000 0000"
+                data-testid="input-customer-phone"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-address">Address</Label>
+              <Input
+                id="c-address"
+                value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                placeholder="123 Main St, City"
+                data-testid="input-customer-address"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-notes">Notes</Label>
+              <Textarea
+                id="c-notes"
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Optional notes..."
+                rows={3}
+                data-testid="input-customer-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving} data-testid="button-save-customer">
+              {saving ? "Saving..." : editCustomer ? "Save Changes" : "Add Customer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this customer. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              data-testid="button-confirm-delete-customer"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Layout>
+  );
+}
