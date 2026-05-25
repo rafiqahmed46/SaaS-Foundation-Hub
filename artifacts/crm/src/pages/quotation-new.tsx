@@ -58,7 +58,10 @@ export default function QuotationNewPage() {
   const currSymbol = CURRENCIES[settings?.currency || "USD"] || "$";
 
   async function handleSave() {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
+      return;
+    }
     if (!customerId) { toast({ title: "Select a customer", variant: "destructive" }); return; }
     if (items.some((i) => !i.description.trim())) { toast({ title: "Fill in all item descriptions", variant: "destructive" }); return; }
     setSaving(true);

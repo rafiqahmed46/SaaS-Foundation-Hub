@@ -73,7 +73,10 @@ export default function TasksPage() {
   }
 
   async function handleSave() {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
+      return;
+    }
     if (!form.title.trim()) { toast({ title: "Title is required", variant: "destructive" }); return; }
     setSaving(true);
     try {

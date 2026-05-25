@@ -61,7 +61,10 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       await saveSettings(user.companyId, settings as Settings);

@@ -93,7 +93,10 @@ export default function InvoiceNewPage() {
   const currSymbol = getCurrencySymbol(settings?.currency || "USD");
 
   async function handleSave() {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
+      return;
+    }
     if (!customerId) {
       toast({ title: "Select a customer", variant: "destructive" });
       return;

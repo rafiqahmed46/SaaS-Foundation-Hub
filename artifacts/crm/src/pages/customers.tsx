@@ -80,7 +80,10 @@ export default function CustomersPage() {
   }
 
   async function handleSave() {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
+      return;
+    }
     if (!form.name.trim() || !form.email.trim()) {
       toast({ title: "Validation", description: "Name and email are required.", variant: "destructive" });
       return;
