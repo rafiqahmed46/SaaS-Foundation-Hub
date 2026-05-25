@@ -9,6 +9,8 @@ import {
   Menu,
   X,
   Building2,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -27,7 +29,7 @@ const navItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, firestoreError } = useAuth();
   const { toast } = useToast();
 
   async function handleLogout() {
@@ -151,6 +153,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-bold text-sm">ClearCRM</span>
           </div>
         </header>
+
+        {/* Firestore setup banner */}
+        {firestoreError && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-amber-800">
+            <div className="flex items-start gap-2 flex-1">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              <div>
+                <span className="font-semibold">Firestore not reachable</span>
+                {firestoreError === "permission-denied" ? (
+                  <span className="ml-1">— your security rules are blocking access. Open the Firebase console → Firestore Database → Rules and allow authenticated reads/writes.</span>
+                ) : (
+                  <span className="ml-1">— Firestore may not be enabled yet. Open the Firebase console, go to <strong>Firestore Database</strong>, click <strong>Create database</strong>, then set rules to allow authenticated access.</span>
+                )}
+              </div>
+            </div>
+            <a
+              href="https://console.firebase.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-amber-700 underline hover:text-amber-900 shrink-0 font-medium"
+            >
+              Open Firebase Console <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        )}
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">

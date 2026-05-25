@@ -37,42 +37,53 @@ export default function SignupPage() {
       await updateProfile(cred.user, { displayName: form.displayName });
 
       // Create company document
-      const companyRef = await addDoc(collection(db, "companies"), {
-        name: form.companyName,
-        ownerId: cred.user.uid,
-        createdAt: new Date().toISOString(),
-      });
+      try {
+        const companyRef = await addDoc(collection(db, "companies"), {
+          name: form.companyName,
+          ownerId: cred.user.uid,
+          createdAt: new Date().toISOString(),
+        });
 
-      // Create user document
-      await setDoc(doc(db, "users", cred.user.uid), {
-        email: form.email,
-        displayName: form.displayName,
-        companyId: companyRef.id,
-        role: "owner",
-        createdAt: new Date().toISOString(),
-      });
+        // Create user document
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email: form.email,
+          displayName: form.displayName,
+          companyId: companyRef.id,
+          role: "owner",
+          createdAt: new Date().toISOString(),
+        });
 
-      // Create default settings
-      await setDoc(doc(db, "settings", companyRef.id), {
-        companyName: form.companyName,
-        companyLogo: "",
-        currency: "USD",
-        invoicePrefix: "INV-",
-        taxEnabled: false,
-        taxRate: 10,
-        discountEnabled: false,
-        address: "",
-        phone: "",
-        email: form.email,
-        website: "",
-      });
+        // Create default settings
+        await setDoc(doc(db, "settings", companyRef.id), {
+          companyName: form.companyName,
+          companyLogo: "",
+          currency: "USD",
+          invoicePrefix: "INV-",
+          taxEnabled: false,
+          taxRate: 10,
+          discountEnabled: false,
+          address: "",
+          phone: "",
+          email: form.email,
+          website: "",
+        });
+      } catch (fsErr: unknown) {
+        const code = (fsErr as { code?: string })?.code ?? "";
+        if (code === "unavailable" || code === "permission-denied" || code === "failed-precondition") {
+          // Firebase Auth account was created — let them in, show Firestore banner
+          navigate("/dashboard");
+          return;
+        }
+        throw fsErr;
+      }
 
       navigate("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("email-already-in-use")) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (msg.includes("email-already-in-use") || code === "auth/email-already-in-use") {
         setError("This email is already registered. Try signing in.");
-      } else if (msg.includes("weak-password")) {
+      } else if (msg.includes("weak-password") || code === "auth/weak-password") {
         setError("Password is too weak. Use at least 6 characters.");
       } else {
         setError("Something went wrong. Please try again.");
