@@ -5,7 +5,6 @@ import { getCustomers, addCustomer, updateCustomer, deleteCustomer, Customer } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,9 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Plus, Search, Phone, MessageCircle, Pencil, Trash2, User, Mail, MapPin, FileText, Users,
-} from "lucide-react";
+import { Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users } from "lucide-react";
 
 type FormData = {
   name: string;
@@ -40,6 +37,10 @@ type FormData = {
 };
 
 const emptyForm: FormData = { name: "", email: "", phone: "", address: "", notes: "" };
+
+function mapsUrl(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
 
 export default function CustomersPage() {
   const { user } = useAuth();
@@ -74,13 +75,7 @@ export default function CustomersPage() {
 
   function openEdit(c: Customer) {
     setEditCustomer(c);
-    setForm({
-      name: c.name,
-      email: c.email,
-      phone: c.phone || "",
-      address: c.address || "",
-      notes: c.notes || "",
-    });
+    setForm({ name: c.name, email: c.email, phone: c.phone || "", address: c.address || "", notes: c.notes || "" });
     setDialogOpen(true);
   }
 
@@ -94,21 +89,14 @@ export default function CustomersPage() {
     try {
       if (editCustomer) {
         await updateCustomer(editCustomer.id, {
-          name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || undefined,
-          address: form.address.trim() || undefined,
-          notes: form.notes.trim() || undefined,
+          name: form.name.trim(), email: form.email.trim(),
+          phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
         });
         toast({ title: "Customer updated" });
       } else {
         await addCustomer({
-          companyId: user.companyId,
-          name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || undefined,
-          address: form.address.trim() || undefined,
-          notes: form.notes.trim() || undefined,
+          companyId: user.companyId, name: form.name.trim(), email: form.email.trim(),
+          phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
         });
         toast({ title: "Customer added" });
       }
@@ -143,7 +131,6 @@ export default function CustomersPage() {
   return (
     <Layout>
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
@@ -157,7 +144,6 @@ export default function CustomersPage() {
           </Button>
         </div>
 
-        {/* Search */}
         <div className="relative mb-5">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
@@ -169,7 +155,6 @@ export default function CustomersPage() {
           />
         </div>
 
-        {/* Table / Cards */}
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -185,12 +170,15 @@ export default function CustomersPage() {
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-12 text-center">
             <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-            <h3 className="font-semibold">
-              {search ? "No customers found" : "No customers yet"}
-            </h3>
+            <h3 className="font-semibold">{search ? "No customers found" : "No customers yet"}</h3>
             <p className="text-sm text-muted-foreground mt-1">
               {search ? "Try a different search term." : "Add your first customer to get started."}
             </p>
+            {!search && (
+              <Button onClick={openAdd} className="mt-4 gap-2" variant="outline">
+                <Plus className="w-4 h-4" /> Add Customer
+              </Button>
+            )}
           </div>
         ) : (
           <div className="rounded-xl border overflow-hidden">
@@ -210,10 +198,8 @@ export default function CustomersPage() {
                     <tr key={c.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-customer-${c.id}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-primary">
-                              {c.name[0].toUpperCase()}
-                            </span>
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-primary">{c.name[0].toUpperCase()}</span>
                           </div>
                           <div>
                             <p className="font-medium">{c.name}</p>
@@ -229,8 +215,7 @@ export default function CustomersPage() {
                           {c.phone && (
                             <a
                               href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target="_blank" rel="noopener noreferrer"
                               title="WhatsApp"
                               className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
                               data-testid={`button-whatsapp-${c.id}`}
@@ -246,6 +231,17 @@ export default function CustomersPage() {
                               data-testid={`button-call-${c.id}`}
                             >
                               <Phone className="w-4 h-4" />
+                            </a>
+                          )}
+                          {c.address && (
+                            <a
+                              href={mapsUrl(c.address)}
+                              target="_blank" rel="noopener noreferrer"
+                              title="View on Google Maps"
+                              className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
+                              data-testid={`button-maps-${c.id}`}
+                            >
+                              <MapPin className="w-4 h-4" />
                             </a>
                           )}
                           <button
@@ -273,7 +269,6 @@ export default function CustomersPage() {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -285,61 +280,32 @@ export default function CustomersPage() {
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
               <Label htmlFor="c-name">Name *</Label>
-              <Input
-                id="c-name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Jane Smith"
-                data-testid="input-customer-name"
-              />
+              <Input id="c-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Jane Smith" data-testid="input-customer-name" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-email">Email *</Label>
-              <Input
-                id="c-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="jane@example.com"
-                data-testid="input-customer-email"
-              />
+              <Input id="c-email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" data-testid="input-customer-email" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-phone">Phone</Label>
-              <Input
-                id="c-phone"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="+1 555 000 0000"
-                data-testid="input-customer-phone"
-              />
+              <Input id="c-phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" data-testid="input-customer-phone" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-address">Address</Label>
-              <Input
-                id="c-address"
-                value={form.address}
-                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="123 Main St, City"
-                data-testid="input-customer-address"
-              />
+              <Input id="c-address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="123 Main St, City" data-testid="input-customer-address" />
+              {form.address && (
+                <a href={mapsUrl(form.address)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-500 hover:underline">
+                  <MapPin className="w-3 h-3" /> Preview on Google Maps
+                </a>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-notes">Notes</Label>
-              <Textarea
-                id="c-notes"
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="Optional notes..."
-                rows={3}
-                data-testid="input-customer-notes"
-              />
+              <Textarea id="c-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." rows={3} data-testid="input-customer-notes" />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} data-testid="button-save-customer">
               {saving ? "Saving..." : editCustomer ? "Save Changes" : "Add Customer"}
             </Button>
@@ -347,22 +313,15 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this customer. This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This will permanently delete this customer. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              data-testid="button-confirm-delete-customer"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" data-testid="button-confirm-delete-customer">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

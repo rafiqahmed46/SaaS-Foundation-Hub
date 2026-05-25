@@ -5,10 +5,10 @@ import { getInvoice, getSettings, updateInvoice, Invoice, Settings } from "@/lib
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2 } from "lucide-react";
+import { ArrowLeft, Download, Building2, Receipt } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -38,10 +38,7 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     if (!id || !user?.companyId) return;
     async function load() {
-      const [inv, sett] = await Promise.all([
-        getInvoice(id!),
-        getSettings(user!.companyId!),
-      ]);
+      const [inv, sett] = await Promise.all([getInvoice(id!), getSettings(user!.companyId!)]);
       setInvoice(inv);
       setSettings(sett);
       setLoading(false);
@@ -71,11 +68,9 @@ export default function InvoiceDetailPage() {
       const doc = new jsPDF();
       const currSymbol = CURRENCIES[settings.currency] || settings.currency;
 
-      // Header
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.text(settings.companyName || "Company", 14, 22);
-
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100);
@@ -84,23 +79,18 @@ export default function InvoiceDetailPage() {
       if (settings.phone) { doc.text(`Phone: ${settings.phone}`, 14, y); y += 5; }
       if (settings.email) { doc.text(`Email: ${settings.email}`, 14, y); y += 5; }
 
-      // Invoice info (right side)
       doc.setTextColor(0);
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.text("INVOICE", 196, 22, { align: "right" });
-
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100);
       doc.text(`Invoice #: ${invoice.invoiceNumber}`, 196, 30, { align: "right" });
       doc.text(`Date: ${new Date(invoice.createdAt).toLocaleDateString()}`, 196, 36, { align: "right" });
-      if (invoice.dueDate) {
-        doc.text(`Due: ${new Date(invoice.dueDate).toLocaleDateString()}`, 196, 42, { align: "right" });
-      }
+      if (invoice.dueDate) doc.text(`Due: ${new Date(invoice.dueDate).toLocaleDateString()}`, 196, 42, { align: "right" });
       doc.text(`Status: ${invoice.status.toUpperCase()}`, 196, 48, { align: "right" });
 
-      // Bill To
       doc.setTextColor(0);
       y = Math.max(y + 10, 60);
       doc.setFontSize(11);
@@ -109,38 +99,23 @@ export default function InvoiceDetailPage() {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.text(invoice.customerName, 14, y + 6);
-
       y += 20;
       doc.setDrawColor(220);
       doc.line(14, y, 196, y);
       y += 8;
 
-      // Items table
       autoTable(doc, {
         startY: y,
         head: [["Description", "Qty", "Unit Price", "Total"]],
-        body: invoice.items.map((item) => [
-          item.description,
-          item.quantity.toString(),
-          `${currSymbol}${item.unitPrice.toFixed(2)}`,
-          `${currSymbol}${(item.quantity * item.unitPrice).toFixed(2)}`,
-        ]),
+        body: invoice.items.map((item) => [item.description, item.quantity.toString(), `${currSymbol}${item.unitPrice.toFixed(2)}`, `${currSymbol}${(item.quantity * item.unitPrice).toFixed(2)}`]),
         headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: {
-          0: { cellWidth: "auto" },
-          1: { cellWidth: 20, halign: "center" },
-          2: { cellWidth: 35, halign: "right" },
-          3: { cellWidth: 35, halign: "right" },
-        },
+        columnStyles: { 1: { cellWidth: 20, halign: "center" }, 2: { cellWidth: 35, halign: "right" }, 3: { cellWidth: 35, halign: "right" } },
         margin: { left: 14, right: 14 },
       });
 
       const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-
-      // Totals
-      const rightCol = 196;
-      const leftCol = 130;
+      const rightCol = 196, leftCol = 130;
       let ty = finalY;
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
@@ -148,23 +123,8 @@ export default function InvoiceDetailPage() {
       doc.text("Subtotal:", leftCol, ty, { align: "right" });
       doc.setTextColor(0);
       doc.text(`${currSymbol}${invoice.subtotal.toFixed(2)}`, rightCol, ty, { align: "right" });
-
-      if (invoice.taxEnabled && invoice.taxAmount) {
-        ty += 6;
-        doc.setTextColor(100);
-        doc.text(`Tax (${invoice.taxRate}%):`, leftCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`${currSymbol}${invoice.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
-
-      if (invoice.discountEnabled && invoice.discountAmount) {
-        ty += 6;
-        doc.setTextColor(100);
-        doc.text(`Discount:`, leftCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`-${currSymbol}${invoice.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
-
+      if (invoice.taxEnabled && invoice.taxAmount) { ty += 6; doc.setTextColor(100); doc.text(`Tax (${invoice.taxRate}%):`, leftCol, ty, { align: "right" }); doc.setTextColor(0); doc.text(`${currSymbol}${invoice.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" }); }
+      if (invoice.discountEnabled && invoice.discountAmount) { ty += 6; doc.setTextColor(100); doc.text("Discount:", leftCol, ty, { align: "right" }); doc.setTextColor(0); doc.text(`-${currSymbol}${invoice.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" }); }
       ty += 8;
       doc.setDrawColor(30, 64, 175);
       doc.line(leftCol - 10, ty - 3, rightCol, ty - 3);
@@ -173,23 +133,133 @@ export default function InvoiceDetailPage() {
       doc.setTextColor(30, 64, 175);
       doc.text("Total:", leftCol, ty + 4, { align: "right" });
       doc.text(`${currSymbol}${invoice.total.toFixed(2)}`, rightCol, ty + 4, { align: "right" });
-
-      if (invoice.notes) {
-        ty += 20;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0);
-        doc.text("Notes:", 14, ty);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100);
-        doc.text(invoice.notes, 14, ty + 6, { maxWidth: 180 });
-      }
+      if (invoice.notes) { ty += 20; doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(0); doc.text("Notes:", 14, ty); doc.setFont("helvetica", "normal"); doc.setTextColor(100); doc.text(invoice.notes, 14, ty + 6, { maxWidth: 180 }); }
 
       doc.save(`${invoice.invoiceNumber}.pdf`);
       toast({ title: "PDF downloaded" });
     } catch (err) {
       console.error(err);
       toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
+    }
+  }
+
+  async function handleDownloadReceipt() {
+    if (!invoice || !settings) return;
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ format: "a5" });
+      const currSymbol = CURRENCIES[settings.currency] || "$";
+      const pageW = doc.internal.pageSize.getWidth();
+      const cx = pageW / 2;
+
+      // Header stripe
+      doc.setFillColor(30, 64, 175);
+      doc.rect(0, 0, pageW, 28, "F");
+
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("PAYMENT RECEIPT", cx, 12, { align: "center" });
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(settings.companyName || "Company", cx, 22, { align: "center" });
+
+      // Receipt info
+      doc.setTextColor(0);
+      doc.setFontSize(9);
+      let y = 38;
+      doc.setFont("helvetica", "bold");
+      doc.text("Receipt For:", 14, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(invoice.customerName, 14, y + 6);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Invoice #:", cx + 5, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(invoice.invoiceNumber, cx + 5, y + 6);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Date Paid:", 14, y + 16);
+      doc.setFont("helvetica", "normal");
+      doc.text(new Date().toLocaleDateString(), 14, y + 22);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Payment Status:", cx + 5, y + 16);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(22, 163, 74);
+      doc.text("PAID ✓", cx + 5, y + 22);
+      doc.setTextColor(0);
+
+      // Divider
+      y += 36;
+      doc.setDrawColor(200);
+      doc.line(14, y, pageW - 14, y);
+      y += 8;
+
+      // Items
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text("DESCRIPTION", 14, y);
+      doc.text("AMOUNT", pageW - 14, y, { align: "right" });
+      y += 5;
+      doc.setDrawColor(220);
+      doc.line(14, y, pageW - 14, y);
+      y += 5;
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0);
+      invoice.items.forEach((item) => {
+        const lineTotal = item.quantity * item.unitPrice;
+        const desc = item.quantity > 1 ? `${item.description} (×${item.quantity})` : item.description;
+        doc.text(desc, 14, y, { maxWidth: pageW - 60 });
+        doc.text(`${currSymbol}${lineTotal.toFixed(2)}`, pageW - 14, y, { align: "right" });
+        y += 7;
+      });
+
+      doc.line(14, y, pageW - 14, y);
+      y += 5;
+
+      // Subtotals
+      if (invoice.taxEnabled && invoice.taxAmount) {
+        doc.setTextColor(100);
+        doc.text(`Subtotal`, 14, y);
+        doc.text(`${currSymbol}${invoice.subtotal.toFixed(2)}`, pageW - 14, y, { align: "right" });
+        y += 6;
+        doc.text(`Tax (${invoice.taxRate}%)`, 14, y);
+        doc.text(`${currSymbol}${invoice.taxAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
+        y += 6;
+      }
+      if (invoice.discountEnabled && invoice.discountAmount) {
+        doc.setTextColor(100);
+        doc.text("Discount", 14, y);
+        doc.text(`-${currSymbol}${invoice.discountAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
+        y += 6;
+      }
+
+      // Total box
+      doc.setFillColor(240, 245, 255);
+      doc.roundedRect(14, y, pageW - 28, 14, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(30, 64, 175);
+      doc.text("TOTAL PAID", 20, y + 9);
+      doc.text(`${currSymbol}${invoice.total.toFixed(2)}`, pageW - 20, y + 9, { align: "right" });
+      y += 22;
+
+      // Footer
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150);
+      doc.text("Thank you for your payment!", cx, y, { align: "center" });
+      if (settings.email) { y += 5; doc.text(settings.email, cx, y, { align: "center" }); }
+      if (settings.phone) { y += 4; doc.text(settings.phone, cx, y, { align: "center" }); }
+
+      doc.save(`receipt-${invoice.invoiceNumber}.pdf`);
+      toast({ title: "Receipt downloaded" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Could not generate receipt.", variant: "destructive" });
     }
   }
 
@@ -220,7 +290,6 @@ export default function InvoiceDetailPage() {
   return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto">
-        {/* Top bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/invoices")} className="p-2 rounded-lg hover:bg-muted transition-colors">
@@ -228,16 +297,12 @@ export default function InvoiceDetailPage() {
             </button>
             <div>
               <h1 className="text-2xl font-bold font-mono tracking-tight">{invoice.invoiceNumber}</h1>
-              <p className="text-sm text-muted-foreground">
-                Created {new Date(invoice.createdAt).toLocaleDateString()}
-              </p>
+              <p className="text-sm text-muted-foreground">Created {new Date(invoice.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={invoice.status} onValueChange={handleStatusChange} disabled={updatingStatus}>
-              <SelectTrigger className="w-32" data-testid="select-invoice-status">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-32" data-testid="select-invoice-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
@@ -246,17 +311,21 @@ export default function InvoiceDetailPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            {invoice.status === "paid" && (
+              <Button variant="outline" onClick={handleDownloadReceipt} className="gap-2" data-testid="button-download-receipt">
+                <Receipt className="w-4 h-4" />
+                Receipt
+              </Button>
+            )}
             <Button onClick={handleDownloadPDF} className="gap-2" data-testid="button-download-pdf">
               <Download className="w-4 h-4" />
-              Download PDF
+              Invoice PDF
             </Button>
           </div>
         </div>
 
-        {/* Invoice card */}
         <Card>
           <CardContent className="p-6 sm:p-8">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between gap-6 mb-8">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -272,21 +341,14 @@ export default function InvoiceDetailPage() {
               <div className="text-right">
                 <p className="text-3xl font-bold text-primary mb-1">INVOICE</p>
                 <p className="text-sm font-mono font-semibold">{invoice.invoiceNumber}</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Issued: {new Date(invoice.createdAt).toLocaleDateString()}
-                </p>
-                {invoice.dueDate && (
-                  <p className="text-sm text-muted-foreground">
-                    Due: {new Date(invoice.dueDate).toLocaleDateString()}
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground mt-1">Issued: {new Date(invoice.createdAt).toLocaleDateString()}</p>
+                {invoice.dueDate && <p className="text-sm text-muted-foreground">Due: {new Date(invoice.dueDate).toLocaleDateString()}</p>}
                 <span className={`inline-flex mt-2 items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[invoice.status]}`}>
                   {invoice.status}
                 </span>
               </div>
             </div>
 
-            {/* Bill To */}
             <div className="mb-6">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Bill To</p>
               <p className="font-semibold">{invoice.customerName}</p>
@@ -294,7 +356,6 @@ export default function InvoiceDetailPage() {
 
             <Separator className="mb-6" />
 
-            {/* Items */}
             <div className="mb-6">
               <table className="w-full text-sm">
                 <thead>
@@ -318,30 +379,13 @@ export default function InvoiceDetailPage() {
               </table>
             </div>
 
-            {/* Totals */}
             <div className="flex justify-end">
               <div className="w-64 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{currSymbol}{invoice.subtotal.toFixed(2)}</span>
-                </div>
-                {invoice.taxEnabled && invoice.taxAmount != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tax ({invoice.taxRate}%)</span>
-                    <span>{currSymbol}{invoice.taxAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                {invoice.discountEnabled && invoice.discountAmount != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span>-{currSymbol}{invoice.discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{currSymbol}{invoice.subtotal.toFixed(2)}</span></div>
+                {invoice.taxEnabled && invoice.taxAmount != null && <div className="flex justify-between"><span className="text-muted-foreground">Tax ({invoice.taxRate}%)</span><span>{currSymbol}{invoice.taxAmount.toFixed(2)}</span></div>}
+                {invoice.discountEnabled && invoice.discountAmount != null && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{currSymbol}{invoice.discountAmount.toFixed(2)}</span></div>}
                 <Separator />
-                <div className="flex justify-between font-bold text-base">
-                  <span>Total</span>
-                  <span className="text-primary">{currSymbol}{invoice.total.toFixed(2)}</span>
-                </div>
+                <div className="flex justify-between font-bold text-base"><span>Total</span><span className="text-primary">{currSymbol}{invoice.total.toFixed(2)}</span></div>
               </div>
             </div>
 
@@ -349,6 +393,19 @@ export default function InvoiceDetailPage() {
               <div className="mt-8 pt-6 border-t">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
                 <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+              </div>
+            )}
+
+            {invoice.status === "paid" && (
+              <div className="mt-6 pt-6 border-t flex items-center gap-3 text-green-700 bg-green-50 rounded-xl px-4 py-3">
+                <Receipt className="w-5 h-5 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Payment received</p>
+                  <p className="text-xs text-green-600">This invoice has been paid. Download the receipt for your records.</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleDownloadReceipt} className="border-green-300 text-green-700 hover:bg-green-100 gap-1.5 shrink-0">
+                  <Receipt className="w-3.5 h-3.5" /> Receipt PDF
+                </Button>
               </div>
             )}
           </CardContent>

@@ -12,35 +12,35 @@ import CustomersPage from "@/pages/customers";
 import InvoicesPage from "@/pages/invoices";
 import InvoiceNewPage from "@/pages/invoice-new";
 import InvoiceDetailPage from "@/pages/invoice-detail";
+import QuotationsPage from "@/pages/quotations";
+import QuotationNewPage from "@/pages/quotation-new";
+import QuotationDetailPage from "@/pages/quotation-detail";
+import TasksPage from "@/pages/tasks";
 import SettingsPage from "@/pages/settings";
 
 const queryClient = new QueryClient();
 
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <Spinner />;
   if (!user) return <Redirect to="/login" />;
   return <Component />;
 }
 
 function PublicRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (user) return <Redirect to="/dashboard" />;
   return <Component />;
 }
@@ -57,6 +57,10 @@ function Router() {
       <Route path="/invoices/new" component={() => <ProtectedRoute component={InvoiceNewPage} />} />
       <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetailPage} />} />
       <Route path="/invoices" component={() => <ProtectedRoute component={InvoicesPage} />} />
+      <Route path="/quotations/new" component={() => <ProtectedRoute component={QuotationNewPage} />} />
+      <Route path="/quotations/:id" component={() => <ProtectedRoute component={QuotationDetailPage} />} />
+      <Route path="/quotations" component={() => <ProtectedRoute component={QuotationsPage} />} />
+      <Route path="/tasks" component={() => <ProtectedRoute component={TasksPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route component={NotFound} />
     </Switch>

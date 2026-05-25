@@ -11,6 +11,8 @@ import {
   Building2,
   AlertTriangle,
   ExternalLink,
+  ClipboardList,
+  CheckSquare,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -23,6 +25,8 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/quotations", label: "Quotations", icon: ClipboardList },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -65,7 +69,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = location === href || location.startsWith(href + "/");
           return (
@@ -160,11 +164,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-start gap-2 flex-1">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
               <div>
-                <span className="font-semibold">Firestore not reachable</span>
+                <span className="font-semibold">Firestore not accessible</span>
                 {firestoreError === "permission-denied" ? (
-                  <span className="ml-1">— your security rules are blocking access. Open the Firebase console → Firestore Database → Rules and allow authenticated reads/writes.</span>
+                  <span className="ml-1">— security rules are blocking access. In Firebase Console → Firestore Database → Rules, paste:
+                    <code className="ml-1 bg-amber-100 px-1 rounded text-xs font-mono">
+                      allow read, write: if request.auth != null;
+                    </code>
+                    Make sure the service is <strong>cloud.firestore</strong> (not beta1).
+                  </span>
                 ) : (
-                  <span className="ml-1">— Firestore may not be enabled yet. Open the Firebase console, go to <strong>Firestore Database</strong>, click <strong>Create database</strong>, then set rules to allow authenticated access.</span>
+                  <span className="ml-1">— Firestore is not enabled. Go to Firebase Console → Firestore Database → Create database (test mode).</span>
                 )}
               </div>
             </div>

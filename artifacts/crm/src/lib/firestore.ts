@@ -9,7 +9,6 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
   setDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -111,6 +110,108 @@ export async function updateInvoice(id: string, data: Partial<Invoice>) {
 
 export async function deleteInvoice(id: string) {
   return deleteDoc(doc(db, "invoices", id));
+}
+
+// ── Quotation ─────────────────────────────────────────────────────────────────
+
+export interface Quotation {
+  id: string;
+  companyId: string;
+  customerId: string;
+  customerName: string;
+  quoteNumber: string;
+  status: "draft" | "sent" | "accepted" | "declined" | "expired";
+  items: InvoiceItem[];
+  subtotal: number;
+  taxEnabled: boolean;
+  taxRate?: number;
+  taxAmount?: number;
+  discountEnabled: boolean;
+  discountType?: "percent" | "fixed";
+  discountValue?: number;
+  discountAmount?: number;
+  total: number;
+  notes?: string;
+  validUntil?: string;
+  createdAt: string;
+}
+
+export async function getQuotations(companyId: string): Promise<Quotation[]> {
+  const q = query(
+    collection(db, "quotations"),
+    where("companyId", "==", companyId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Quotation));
+}
+
+export async function getQuotation(id: string): Promise<Quotation | null> {
+  const snap = await getDoc(doc(db, "quotations", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Quotation;
+}
+
+export async function addQuotation(data: Omit<Quotation, "id" | "createdAt">) {
+  return addDoc(collection(db, "quotations"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function updateQuotation(id: string, data: Partial<Quotation>) {
+  return updateDoc(doc(db, "quotations", id), data);
+}
+
+export async function deleteQuotation(id: string) {
+  return deleteDoc(doc(db, "quotations", id));
+}
+
+export async function getNextQuoteNumber(companyId: string, prefix: string): Promise<string> {
+  const q = query(collection(db, "quotations"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  const next = snap.size + 1;
+  return `${prefix}QT-${String(next).padStart(4, "0")}`;
+}
+
+// ── Task ─────────────────────────────────────────────────────────────────────
+
+export interface Task {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string;
+  customerId?: string;
+  customerName?: string;
+  status: "todo" | "in-progress" | "done";
+  priority: "low" | "medium" | "high";
+  dueDate?: string;
+  createdAt: string;
+}
+
+export async function getTasks(companyId: string): Promise<Task[]> {
+  const q = query(
+    collection(db, "tasks"),
+    where("companyId", "==", companyId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Task));
+}
+
+export async function addTask(data: Omit<Task, "id" | "createdAt">) {
+  return addDoc(collection(db, "tasks"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function updateTask(id: string, data: Partial<Task>) {
+  return updateDoc(doc(db, "tasks", id), data);
+}
+
+export async function deleteTask(id: string) {
+  return deleteDoc(doc(db, "tasks", id));
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
