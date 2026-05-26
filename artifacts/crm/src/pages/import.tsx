@@ -33,6 +33,7 @@ const CUSTOMER_FIELDS = [
   { key: "email",   label: "Email",     required: false, hints: ["email", "email address", "e-mail", "mail"] },
   { key: "phone",   label: "Phone",     required: false, hints: ["phone", "phone number", "mobile", "cell", "telephone", "tel", "contact number"] },
   { key: "address", label: "Address",   required: false, hints: ["address", "location", "city", "area"] },
+  { key: "type",    label: "Type",      required: false, hints: ["type", "contact type", "category", "customer type", "lead type", "status", "stage"] },
   { key: "notes",   label: "Notes",     required: false, hints: ["notes", "note", "description", "comment", "remarks", "details"] },
 ];
 
@@ -51,13 +52,12 @@ const NOTE_FIELDS = [
 ];
 
 const SCHEDULE_FIELDS = [
-  { key: "title",        label: "Title / Subject *",  required: true,  hints: ["title", "subject", "event", "appointment", "name", "description", "activity"] },
-  { key: "date",         label: "Date *",             required: true,  hints: ["date", "start date", "scheduled date", "appointment date", "event date", "day"] },
-  { key: "time",         label: "Time",               required: false, hints: ["time", "start time", "appointment time", "hour"] },
-  { key: "customerName", label: "Customer / Contact", required: false, hints: ["contact", "customer", "client", "name", "customer name", "contact name", "with"] },
-  { key: "type",         label: "Type",               required: false, hints: ["type", "category", "event type", "kind", "activity type"] },
-  { key: "status",       label: "Status",             required: false, hints: ["status", "state", "outcome", "result"] },
-  { key: "notes",        label: "Notes",              required: false, hints: ["notes", "note", "description", "details", "remarks", "memo", "comments"] },
+  { key: "title",        label: "Title / Task *",     required: true,  hints: ["title", "task", "task name", "subject", "name", "description", "activity", "schedule", "event"] },
+  { key: "dueDate",      label: "Due Date / Date",    required: false, hints: ["date", "due date", "start date", "scheduled date", "deadline", "due", "day", "due_date"] },
+  { key: "customerName", label: "Customer / Contact", required: false, hints: ["contact", "customer", "client", "name", "customer name", "contact name", "assigned to", "with"] },
+  { key: "status",       label: "Status",             required: false, hints: ["status", "state", "outcome", "result", "done"] },
+  { key: "priority",     label: "Priority",           required: false, hints: ["priority", "urgency", "importance"] },
+  { key: "description",  label: "Notes / Description",required: false, hints: ["notes", "note", "description", "details", "remarks", "memo", "comments", "body"] },
 ];
 
 // Invoice fields split into two groups: invoice-level and item-level
@@ -281,10 +281,11 @@ function CustomersTab({ companyId }: { companyId: string }) {
         batch.set(ref, {
           companyId,
           name:    row[map["name"]]?.trim() || "",
-          email:   row[map["email"]]?.trim() || "",
-          phone:   row[map["phone"]]?.trim() || "",
-          address: row[map["address"]]?.trim() || "",
-          notes:   row[map["notes"]]?.trim() || "",
+          email:   map["email"]   ? row[map["email"]]?.trim()   || "" : "",
+          phone:   map["phone"]   ? row[map["phone"]]?.trim()   || "" : "",
+          address: map["address"] ? row[map["address"]]?.trim() || "" : "",
+          type:    map["type"]    ? normaliseCustomerType(row[map["type"]] || "") : "customer",
+          notes:   map["notes"]   ? row[map["notes"]]?.trim()   || "" : "",
           createdAt: new Date().toISOString(),
         });
         res.success++;
@@ -480,8 +481,15 @@ function normaliseScheduleStatus(raw: string): string {
   const v = raw.toLowerCase().trim();
   if (v === "done" || v === "completed" || v === "complete" || v === "finished") return "completed";
   if (v.includes("cancel")) return "cancelled";
-  if (v === "confirmed" || v === "booked") return "confirmed";
-  return "scheduled";
+  if (v === "in progress" || v === "inprogress" || v === "in-progress" || v === "started") return "in-progress";
+  return "pending";
+}
+
+function normaliseCustomerType(raw: string): string {
+  const v = raw.toLowerCase().trim();
+  if (v === "lead" || v === "prospect" || v === "potential") return "lead";
+  if (v === "lost" || v === "inactive" || v === "churned") return "lost";
+  return "customer";
 }
 
 function ScheduleTab({ companyId }: { companyId: string }) {
@@ -532,14 +540,13 @@ function ScheduleTab({ companyId }: { companyId: string }) {
         const custRaw = map["customerName"] ? row[map["customerName"]]?.trim() || "" : "";
         const custLookup = custRaw ? customerMap[custRaw.toLowerCase()] : undefined;
 
-        batch.set(doc(collection(db, "schedules")), {
+        batch.set(doc(collection(db, "tasks")), {
           companyId,
           title,
-          date:         map["date"]   ? row[map["date"]]?.trim()   || "" : "",
-          time:         map["time"]   ? row[map["time"]]?.trim()   || "" : "",
-          type:         map["type"]   ? row[map["type"]]?.trim()   || "" : "",
-          status:       map["status"] ? normaliseScheduleStatus(row[map["status"]] || "") : "scheduled",
-          notes:        map["notes"]  ? row[map["notes"]]?.trim()  || "" : "",
+          dueDate:      map["dueDate"]      ? row[map["dueDate"]]?.trim()      || "" : "",
+          status:       map["status"]       ? normaliseScheduleStatus(row[map["status"]] || "") : "pending",
+          priority:     map["priority"]     ? row[map["priority"]]?.trim()     || "" : "",
+          description:  map["description"]  ? row[map["description"]]?.trim()  || "" : "",
           customerName: custLookup?.name || custRaw,
           customerId:   custLookup?.id   || "",
           createdAt:    new Date().toISOString(),
@@ -553,7 +560,7 @@ function ScheduleTab({ companyId }: { companyId: string }) {
       setProgress(Math.round(((bi + 1) / batches.length) * 100));
     }
     setImporting(false); setResult(res);
-    if (res.success > 0) toast({ title: `${res.success} schedule items imported!` });
+    if (res.success > 0) toast({ title: `${res.success} tasks imported!` });
   }
 
   return (
@@ -570,7 +577,7 @@ function ScheduleTab({ companyId }: { companyId: string }) {
           <Button onClick={handleImport} disabled={importing} className="w-full gap-2">
             {importing
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing… {progress}%</>
-              : <><Upload className="w-4 h-4" /> Import Schedule</>}
+              : <><Upload className="w-4 h-4" /> Import Tasks</>}
           </Button>
         </>
       )}
