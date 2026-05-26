@@ -35,6 +35,12 @@ export async function getCustomers(companyId: string): Promise<Customer[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Customer)).sort(byCreatedAtDesc);
 }
 
+export async function getCustomer(id: string): Promise<Customer | null> {
+  const snap = await getDoc(doc(db, "customers", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Customer;
+}
+
 export async function addCustomer(data: Omit<Customer, "id" | "createdAt">) {
   return addDoc(collection(db, "customers"), { ...data, createdAt: new Date().toISOString() });
 }

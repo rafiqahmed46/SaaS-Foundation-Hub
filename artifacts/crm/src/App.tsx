@@ -9,6 +9,7 @@ import SignupPage from "@/pages/signup";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import DashboardPage from "@/pages/dashboard";
 import CustomersPage from "@/pages/customers";
+import CustomerDetailPage from "@/pages/customer-detail";
 import InvoicesPage from "@/pages/invoices";
 import InvoiceNewPage from "@/pages/invoice-new";
 import InvoiceDetailPage from "@/pages/invoice-detail";
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/signup" component={() => <PublicRoute component={SignupPage} />} />
       <Route path="/forgot-password" component={() => <PublicRoute component={ForgotPasswordPage} />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+      <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetailPage} />} />
       <Route path="/customers" component={() => <ProtectedRoute component={CustomersPage} />} />
       <Route path="/invoices/new" component={() => <ProtectedRoute component={InvoiceNewPage} />} />
       <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetailPage} />} />

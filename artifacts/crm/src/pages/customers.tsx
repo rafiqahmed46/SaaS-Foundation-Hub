@@ -26,7 +26,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users } from "lucide-react";
+import { useLocation } from "wouter";
+import { Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink } from "lucide-react";
 
 type FormData = {
   name: string;
@@ -45,6 +46,7 @@ function mapsUrl(address: string) {
 export default function CustomersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -206,15 +208,21 @@ export default function CustomersPage() {
                   {filtered.map((c) => (
                     <tr key={c.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-customer-${c.id}`}>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => navigate(`/customers/${c.id}`)}
+                          className="flex items-center gap-3 text-left group"
+                        >
                           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                             <span className="text-sm font-bold text-primary">{c.name[0].toUpperCase()}</span>
                           </div>
                           <div>
-                            <p className="font-medium">{c.name}</p>
+                            <p className="font-medium group-hover:text-primary transition-colors flex items-center gap-1">
+                              {c.name}
+                              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                            </p>
                             <p className="text-xs text-muted-foreground md:hidden">{c.email}</p>
                           </div>
-                        </div>
+                        </button>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{c.email}</td>
                       <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{c.phone || "—"}</td>
