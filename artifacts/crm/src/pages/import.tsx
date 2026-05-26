@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, CheckCircle2, AlertCircle, Users, CheckSquare, StickyNote, X, FileUp, Loader2, FileText } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Users, CheckSquare, StickyNote, X, FileUp, Loader2, FileText, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,6 +48,16 @@ const NOTE_FIELDS = [
   { key: "customerName", label: "Customer Name *", required: true,  hints: ["contact", "customer", "name", "client", "contact name"] },
   { key: "note",         label: "Note Content *",  required: true,  hints: ["note", "description", "content", "body", "details", "text", "notes"] },
   { key: "title",        label: "Title",           required: false, hints: ["title", "subject", "summary"] },
+];
+
+const SCHEDULE_FIELDS = [
+  { key: "title",        label: "Title / Subject *",  required: true,  hints: ["title", "subject", "event", "appointment", "name", "description", "activity"] },
+  { key: "date",         label: "Date *",             required: true,  hints: ["date", "start date", "scheduled date", "appointment date", "event date", "day"] },
+  { key: "time",         label: "Time",               required: false, hints: ["time", "start time", "appointment time", "hour"] },
+  { key: "customerName", label: "Customer / Contact", required: false, hints: ["contact", "customer", "client", "name", "customer name", "contact name", "with"] },
+  { key: "type",         label: "Type",               required: false, hints: ["type", "category", "event type", "kind", "activity type"] },
+  { key: "status",       label: "Status",             required: false, hints: ["status", "state", "outcome", "result"] },
+  { key: "notes",        label: "Notes",              required: false, hints: ["notes", "note", "description", "details", "remarks", "memo", "comments"] },
 ];
 
 // Invoice fields split into two groups: invoice-level and item-level
@@ -464,6 +474,110 @@ function NotesTab({ companyId }: { companyId: string }) {
   );
 }
 
+// ── Schedule tab ──────────────────────────────────────────────────────────────
+
+function normaliseScheduleStatus(raw: string): string {
+  const v = raw.toLowerCase().trim();
+  if (v === "done" || v === "completed" || v === "complete" || v === "finished") return "completed";
+  if (v.includes("cancel")) return "cancelled";
+  if (v === "confirmed" || v === "booked") return "confirmed";
+  return "scheduled";
+}
+
+function ScheduleTab({ companyId }: { companyId: string }) {
+  const { toast } = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [map, setMap] = useState<ColumnMap>({});
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<ImportResult | null>(null);
+
+  function handleFile(f: File) {
+    setFile(f); setResult(null);
+    Papa.parse<ParsedRow>(f, {
+      header: true, skipEmptyLines: true,
+      complete: ({ data, meta }) => {
+        const cols = meta.fields || [];
+        setColumns(cols); setRows(data);
+        setMap(autoMap(cols, SCHEDULE_FIELDS));
+      },
+    });
+  }
+
+  async function handleImport() {
+    if (!map["title"]) { toast({ title: "Map the Title / Subject column first", variant: "destructive" }); return; }
+    if (!map["date"])  { toast({ title: "Map the Date column first", variant: "destructive" }); return; }
+
+    setImporting(true); setProgress(0);
+    const res: ImportResult = { success: 0, skipped: 0, errors: [] };
+
+    // Load customers for name → id lookup
+    const { getDocs, query, collection: col, where } = await import("firebase/firestore");
+    const snap = await getDocs(query(col(db, "customers"), where("companyId", "==", companyId)));
+    const customerMap: Record<string, { id: string; name: string }> = {};
+    snap.forEach((d) => {
+      const name = (d.data().name as string || "").toLowerCase().trim();
+      customerMap[name] = { id: d.id, name: d.data().name as string };
+    });
+
+    const batches = chunk(rows, 499);
+    for (let bi = 0; bi < batches.length; bi++) {
+      const batch = writeBatch(db);
+      for (const row of batches[bi]) {
+        const title = map["title"] ? row[map["title"]]?.trim() : "";
+        if (!title) { res.skipped++; continue; }
+
+        const custRaw = map["customerName"] ? row[map["customerName"]]?.trim() || "" : "";
+        const custLookup = custRaw ? customerMap[custRaw.toLowerCase()] : undefined;
+
+        batch.set(doc(collection(db, "schedules")), {
+          companyId,
+          title,
+          date:         map["date"]   ? row[map["date"]]?.trim()   || "" : "",
+          time:         map["time"]   ? row[map["time"]]?.trim()   || "" : "",
+          type:         map["type"]   ? row[map["type"]]?.trim()   || "" : "",
+          status:       map["status"] ? normaliseScheduleStatus(row[map["status"]] || "") : "scheduled",
+          notes:        map["notes"]  ? row[map["notes"]]?.trim()  || "" : "",
+          customerName: custLookup?.name || custRaw,
+          customerId:   custLookup?.id   || "",
+          createdAt:    new Date().toISOString(),
+        });
+        res.success++;
+      }
+      try { await batch.commit(); } catch (e: unknown) {
+        res.errors.push(`Batch ${bi + 1}: ${(e as Error).message}`);
+        res.success -= batches[bi].length;
+      }
+      setProgress(Math.round(((bi + 1) / batches.length) * 100));
+    }
+    setImporting(false); setResult(res);
+    if (res.success > 0) toast({ title: `${res.success} schedule items imported!` });
+  }
+
+  return (
+    <div className="space-y-5">
+      <DropZone file={file} onFile={handleFile} />
+      {result && <ResultBanner result={result} onClear={() => setResult(null)} />}
+      {columns.length > 0 && (
+        <>
+          <div>
+            <p className="text-sm font-medium mb-2">Preview <span className="text-muted-foreground font-normal">({rows.length} rows)</span></p>
+            <PreviewTable rows={rows} columns={columns} />
+          </div>
+          <ColumnMapper fields={SCHEDULE_FIELDS} csvColumns={columns} map={map} onChange={setMap} />
+          <Button onClick={handleImport} disabled={importing} className="w-full gap-2">
+            {importing
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing… {progress}%</>
+              : <><Upload className="w-4 h-4" /> Import Schedule</>}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Invoices tab ──────────────────────────────────────────────────────────────
 
 function normaliseInvoiceStatus(raw: string): InvoiceStatus {
@@ -634,8 +748,9 @@ function InvoicesTab({ companyId }: { companyId: string }) {
 const TABS = [
   { key: "customers", label: "Customers", icon: Users },
   { key: "invoices",  label: "Invoices",  icon: FileText },
-  { key: "tasks",     label: "Tasks",     icon: CheckSquare },
+  { key: "schedule",  label: "Schedule",  icon: CalendarDays },
   { key: "notes",     label: "Notes",     icon: StickyNote },
+  { key: "tasks",     label: "Tasks",     icon: CheckSquare },
 ];
 
 export default function ImportPage() {
@@ -688,14 +803,16 @@ export default function ImportPage() {
             <CardTitle className="text-base">
               {tab === "customers" && "Import Customers"}
               {tab === "invoices"  && "Import Invoices"}
-              {tab === "tasks" && "Import Tasks"}
-              {tab === "notes" && "Import Notes"}
+              {tab === "schedule"  && "Import Schedule"}
+              {tab === "tasks"     && "Import Tasks"}
+              {tab === "notes"     && "Import Notes"}
             </CardTitle>
             <CardDescription>
-              {tab === "customers" && "Upload your customers CSV. Map the columns, then click Import."}
+              {tab === "customers" && "Upload your contacts CSV. Map the columns, then click Import."}
               {tab === "invoices"  && "Upload your invoices CSV. Rows with the same invoice number are grouped as one invoice with multiple line items."}
-              {tab === "tasks" && "Upload your tasks CSV. Status and priority are auto-converted."}
-              {tab === "notes" && "Upload your notes CSV. Notes will be matched to customers by name."}
+              {tab === "schedule"  && "Upload your schedule CSV. Appointments are linked to customers by name."}
+              {tab === "tasks"     && "Upload your tasks CSV. Status and priority are auto-converted."}
+              {tab === "notes"     && "Upload your notes CSV. Notes will be matched to customers by name."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -705,6 +822,8 @@ export default function ImportPage() {
               <CustomersTab companyId={companyId} />
             ) : tab === "invoices" ? (
               <InvoicesTab companyId={companyId} />
+            ) : tab === "schedule" ? (
+              <ScheduleTab companyId={companyId} />
             ) : tab === "tasks" ? (
               <TasksTab companyId={companyId} />
             ) : (
