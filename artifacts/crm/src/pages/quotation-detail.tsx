@@ -186,10 +186,7 @@ export default function QuotationDetailPage() {
       // Right meta — label at pageW-M-56 (right-aligned), value at pageW-M (right-aligned)
       const metaLblX = pageW - M - 56;
       const metaValX = pageW - M;
-      const metaRight: [string, string][] = [
-        ["Quote No:", quotation.quoteNumber],
-        ["Date:", fmtDate(quotation.createdAt)],
-      ];
+      const metaRight: [string, string][] = [];
       if (quotation.validUntil) metaRight.push(["Valid Until:", fmtDate(quotation.validUntil)]);
       metaRight.push(["Status:", quotation.status.toUpperCase()]);
       let ry = y;

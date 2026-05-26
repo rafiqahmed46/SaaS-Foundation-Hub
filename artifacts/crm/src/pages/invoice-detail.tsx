@@ -142,10 +142,7 @@ export default function InvoiceDetailPage() {
       // Right meta — label at pageW-M-56 (right-aligned), value at pageW-M (right-aligned)
       const metaLblX = pageW - M - 56;
       const metaValX = pageW - M;
-      const rightMeta: [string, string][] = [
-        ["Invoice No:", invoice.invoiceNumber],
-        ["Date:", fmtDate(invoice.createdAt)],
-      ];
+      const rightMeta: [string, string][] = [];
       if (invoice.dueDate) rightMeta.push(["Due Date:", fmtDate(invoice.dueDate)]);
       if ((invoice as unknown as { poNumber?: string }).poNumber)
         rightMeta.push(["PO No:", (invoice as unknown as { poNumber: string }).poNumber]);
