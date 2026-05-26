@@ -35,7 +35,6 @@ export default function InvoiceNewPage() {
 
   const [customerId, setCustomerId] = useState("none");
   const [status, setStatus] = useState("draft");
-  const [itemErrors, setItemErrors] = useState<boolean[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -81,9 +80,6 @@ export default function InvoiceNewPage() {
 
   function updateItem(idx: number, field: keyof LineItem, value: string | number) {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
-    if (field === "description" && typeof value === "string" && value.trim()) {
-      setItemErrors((prev) => { const next = [...prev]; next[idx] = false; return next; });
-    }
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
@@ -101,11 +97,6 @@ export default function InvoiceNewPage() {
   async function handleSave() {
     if (!user?.companyId) {
       toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
-      return;
-    }
-    const newItemErrors = items.map((item) => !item.description.trim());
-    if (newItemErrors.some(Boolean)) {
-      setItemErrors(newItemErrors);
       return;
     }
     setSaving(true);
@@ -231,23 +222,20 @@ export default function InvoiceNewPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium px-1">
-                  <span className={`col-span-5 ${itemErrors.some(Boolean) ? "text-destructive" : "text-muted-foreground"}`}>
-                    Description{itemErrors.some(Boolean) && " — required"}
-                  </span>
-                  <span className="col-span-2 text-center text-muted-foreground">Qty</span>
-                  <span className="col-span-3 text-right text-muted-foreground">Unit Price ({currency})</span>
-                  <span className="col-span-2 text-right text-muted-foreground">Total</span>
+                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
+                  <span className="col-span-5">Description <span className="font-normal opacity-60">(optional)</span></span>
+                  <span className="col-span-2 text-center">Qty</span>
+                  <span className="col-span-3 text-right">Unit Price ({currency})</span>
+                  <span className="col-span-2 text-right">Total</span>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className={`grid grid-cols-12 gap-2 items-center rounded-lg ${itemErrors[idx] ? "bg-destructive/5 ring-1 ring-destructive/30 p-1" : ""}`} data-testid={`row-item-${idx}`}>
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center" data-testid={`row-item-${idx}`}>
                     <div className="col-span-12 sm:col-span-5">
                       <Input
-                        placeholder="Item description"
+                        placeholder="Item description (optional)"
                         value={item.description}
                         onChange={(e) => updateItem(idx, "description", e.target.value)}
                         data-testid={`input-item-description-${idx}`}
-                        className={itemErrors[idx] ? "border-destructive focus-visible:ring-destructive placeholder:text-destructive/60" : ""}
                       />
                     </div>
                     <div className="col-span-4 sm:col-span-2">

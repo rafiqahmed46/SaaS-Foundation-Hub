@@ -306,10 +306,10 @@ export default function CustomersPage() {
               <Input
                 id="c-name" value={form.name} placeholder="Jane Smith"
                 data-testid="input-customer-name"
-                className={fieldErrors.name ? "border-destructive ring-destructive focus-visible:ring-destructive" : ""}
+                className={fieldErrors.name ? "border-red-500 ring-2 ring-red-400/50 focus-visible:ring-red-500" : ""}
                 onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); if (fieldErrors.name) setFieldErrors((fe) => ({ ...fe, name: false })); }}
               />
-              {fieldErrors.name && <p className="text-xs text-destructive">Name is required</p>}
+              {fieldErrors.name && <p className="text-xs text-red-500 font-medium">Name is required</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-email" className={fieldErrors.email ? "text-destructive" : ""}>
@@ -318,10 +318,10 @@ export default function CustomersPage() {
               <Input
                 id="c-email" type="email" value={form.email} placeholder="jane@example.com"
                 data-testid="input-customer-email"
-                className={fieldErrors.email ? "border-destructive ring-destructive focus-visible:ring-destructive" : ""}
+                className={fieldErrors.email ? "border-red-500 ring-2 ring-red-400/50 focus-visible:ring-red-500" : ""}
                 onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); if (fieldErrors.email) setFieldErrors((fe) => ({ ...fe, email: false })); }}
               />
-              {fieldErrors.email && <p className="text-xs text-destructive">Email is required</p>}
+              {fieldErrors.email && <p className="text-xs text-red-500 font-medium">Email is required</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-phone">Phone</Label>

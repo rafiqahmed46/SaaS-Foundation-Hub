@@ -129,12 +129,12 @@ export default function QuotationNewPage() {
                       Customer <span className={errors.customer ? "text-destructive font-medium" : ""}>*</span>
                     </Label>
                     <Select value={customerId} onValueChange={(v) => { setCustomerId(v); if (errors.customer) setErrors((e) => ({ ...e, customer: false })); }}>
-                      <SelectTrigger className={errors.customer ? "border-destructive ring-1 ring-destructive" : ""}>
+                      <SelectTrigger className={errors.customer ? "border-red-500 ring-2 ring-red-400/50" : ""}>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
-                    {errors.customer && <p className="text-xs text-destructive">Please select a customer</p>}
+                    {errors.customer && <p className="text-xs text-red-500 font-medium">Please select a customer</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Status</Label>
@@ -176,12 +176,12 @@ export default function QuotationNewPage() {
                   <span className="col-span-2 text-right text-muted-foreground">Total</span>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className={`grid grid-cols-12 gap-2 items-center rounded-lg ${errors.items?.[idx] ? "bg-destructive/5 ring-1 ring-destructive/30 p-1" : ""}`}>
+                  <div key={idx} className={`grid grid-cols-12 gap-2 items-center rounded-lg transition-colors ${errors.items?.[idx] ? "bg-red-50 ring-1 ring-red-300 p-1" : ""}`}>
                     <div className="col-span-12 sm:col-span-5">
                       <Input
                         placeholder="Description"
                         value={item.description}
-                        className={errors.items?.[idx] ? "border-destructive focus-visible:ring-destructive placeholder:text-destructive/60" : ""}
+                        className={errors.items?.[idx] ? "border-red-500 ring-2 ring-red-400/50 focus-visible:ring-red-500" : ""}
                         onChange={(e) => {
                           setItems((p) => p.map((it, i) => i === idx ? { ...it, description: e.target.value } : it));
                           if (errors.items?.[idx] && e.target.value.trim()) {
