@@ -243,7 +243,7 @@ export default function QuotationDetailPage() {
         ty += 8;
       };
       totRow("Subtotal:", `${currSymbol} ${quotation.subtotal.toFixed(2)}`);
-      if (quotation.taxEnabled && quotation.taxAmount != null)
+      if (settings?.taxEnabled && quotation.taxEnabled && quotation.taxAmount != null)
         totRow(`${taxLabel} (${quotation.taxRate}%):`, `${currSymbol} ${quotation.taxAmount.toFixed(2)}`);
       if (quotation.discountEnabled && quotation.discountAmount != null)
         totRow("Discount:", `- ${currSymbol} ${quotation.discountAmount.toFixed(2)}`);
@@ -488,7 +488,7 @@ export default function QuotationDetailPage() {
             <div className="flex justify-end">
               <div className="w-72 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal ({currency})</span><span>{currSymbol} {quotation.subtotal.toFixed(2)}</span></div>
-                {quotation.taxEnabled && quotation.taxAmount != null && (
+                {settings?.taxEnabled && quotation.taxEnabled && quotation.taxAmount != null && (
                   <div className="flex justify-between"><span className="text-muted-foreground">{taxLabel} ({quotation.taxRate}%)</span><span>{currSymbol} {quotation.taxAmount.toFixed(2)}</span></div>
                 )}
                 {quotation.discountEnabled && quotation.discountAmount != null && (

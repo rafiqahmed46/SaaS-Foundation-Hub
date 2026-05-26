@@ -206,7 +206,7 @@ export default function InvoiceDetailPage() {
         ty += 8;
       };
       totRow("Subtotal:", `${currSymbol} ${invoice.subtotal.toFixed(2)}`);
-      if (invoice.taxEnabled && invoice.taxAmount != null)
+      if (settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null)
         totRow(`${taxLabel} (${invoice.taxRate}%):`, `${currSymbol} ${invoice.taxAmount.toFixed(2)}`);
       if (invoice.discountEnabled && invoice.discountAmount != null)
         totRow("Discount:", `- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`);
@@ -403,7 +403,7 @@ export default function InvoiceDetailPage() {
       y += 5;
 
       // Subtotals
-      if (invoice.taxEnabled && invoice.taxAmount != null) {
+      if (settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null) {
         doc.setTextColor(100);
         doc.text(`Subtotal`, 14, y);
         doc.text(`${currSymbol} ${invoice.subtotal.toFixed(2)}`, pageW - 14, y, { align: "right" });
@@ -630,7 +630,7 @@ export default function InvoiceDetailPage() {
             <div className="flex justify-end">
               <div className="w-72 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal ({currency})</span><span>{currSymbol} {invoice.subtotal.toFixed(2)}</span></div>
-                {invoice.taxEnabled && invoice.taxAmount != null && (
+                {settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null && (
                   <div className="flex justify-between"><span className="text-muted-foreground">{taxLabel} ({invoice.taxRate}%)</span><span>{currSymbol} {invoice.taxAmount.toFixed(2)}</span></div>
                 )}
                 {invoice.discountEnabled && invoice.discountAmount != null && (
