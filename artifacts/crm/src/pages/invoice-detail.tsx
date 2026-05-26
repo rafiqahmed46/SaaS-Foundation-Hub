@@ -314,9 +314,9 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function handleDownloadReceipt() {
-    if (!invoice) return;
-    try {
+  async function buildReceiptPDF() {
+    if (!invoice) throw new Error("No invoice");
+    {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ format: "a5" });
       const currency = invoice?.currency || settings?.currency || "AED";
@@ -459,11 +459,55 @@ export default function InvoiceDetailPage() {
       if (settings?.taxEnabled && settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 7, { align: "center" });
       doc.text("Thank you!", pageW - RM, pageH - 7, { align: "right" });
 
-      doc.save(`receipt-${invoice.invoiceNumber}.pdf`);
+      return doc;
+    }
+  }
+
+  async function handleViewReceiptPDF() {
+    try {
+      const doc = await buildReceiptPDF();
+      window.open(doc.output("bloburl") as unknown as string, "_blank");
+    } catch (err) { console.error(err); toast({ title: "Could not generate receipt", variant: "destructive" }); }
+  }
+
+  async function handleDownloadReceipt() {
+    try {
+      const doc = await buildReceiptPDF();
+      doc.save(`receipt-${invoice!.invoiceNumber}.pdf`);
       toast({ title: "Receipt Voucher downloaded" });
+    } catch (err) { console.error(err); toast({ title: "Could not generate receipt", variant: "destructive" }); }
+  }
+
+  async function handleWhatsAppReceipt() {
+    try {
+      const doc = await buildReceiptPDF();
+      const filename = `receipt-${invoice!.invoiceNumber}.pdf`;
+      const sym = getCurrencySymbol(invoice!.currency || settings?.currency || "AED");
+      const msg = [
+        `*RECEIPT VOUCHER*`,
+        `*${settings?.companyName || ""}*`,
+        (settings?.taxEnabled && settings?.trn) ? `TRN: ${settings.trn}` : "",
+        ``,
+        `*Receipt For:* ${invoice!.customerName}`,
+        `*Invoice #:* ${invoice!.invoiceNumber}`,
+        `*Amount Paid:* ${sym} ${invoice!.total.toFixed(2)}`,
+      ].filter(Boolean).join("\n");
+
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        const blob = doc.output("blob");
+        const file = new File([blob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      }
+      doc.save(filename);
+      setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
+      toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
     } catch (err) {
+      if ((err as { name?: string }).name === "AbortError") return;
       console.error(err);
-      toast({ title: "Error", description: "Could not generate receipt.", variant: "destructive" });
+      toast({ title: "Could not generate receipt", variant: "destructive" });
     }
   }
 
@@ -544,10 +588,25 @@ export default function InvoiceDetailPage() {
               <Pencil className="w-4 h-4" />
               Edit
             </Button>
-            <Button variant="outline" onClick={handleDownloadReceipt} className="gap-2" data-testid="button-download-receipt">
-              <Receipt className="w-4 h-4" />
-              Receipt Voucher
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2" data-testid="button-download-receipt">
+                  <Receipt className="w-4 h-4" /> Receipt Voucher <ChevronDown className="w-3 h-3 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleViewReceiptPDF} className="gap-2 cursor-pointer">
+                  <Eye className="w-4 h-4 text-blue-600" /> View Receipt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadReceipt} className="gap-2 cursor-pointer">
+                  <Download className="w-4 h-4 text-primary" /> Download Receipt
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleWhatsAppReceipt} className="gap-2 cursor-pointer">
+                  <MessageCircle className="w-4 h-4 text-green-600" /> Send via WhatsApp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="gap-2" data-testid="button-download-pdf">
@@ -681,9 +740,25 @@ export default function InvoiceDetailPage() {
                 <p className="font-semibold text-sm text-blue-800">Receipt Voucher</p>
                 <p className="text-xs text-blue-600">Download a receipt voucher for this invoice at any time.</p>
               </div>
-              <Button size="sm" variant="outline" onClick={handleDownloadReceipt} className="border-blue-300 text-blue-700 hover:bg-blue-100 gap-1.5 shrink-0">
-                <Receipt className="w-3.5 h-3.5" /> Download
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100 gap-1.5 shrink-0">
+                    <Receipt className="w-3.5 h-3.5" /> Actions <ChevronDown className="w-3 h-3 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleViewReceiptPDF} className="gap-2 cursor-pointer">
+                    <Eye className="w-4 h-4 text-blue-600" /> View Receipt
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadReceipt} className="gap-2 cursor-pointer">
+                    <Download className="w-4 h-4 text-primary" /> Download Receipt
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleWhatsAppReceipt} className="gap-2 cursor-pointer">
+                    <MessageCircle className="w-4 h-4 text-green-600" /> Send via WhatsApp
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardContent>
         </Card>
