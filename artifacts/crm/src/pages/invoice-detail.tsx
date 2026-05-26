@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, Receipt } from "lucide-react";
+import { ArrowLeft, Download, Building2, Receipt, Palette } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -21,6 +21,17 @@ const STATUS_STYLES: Record<string, string> = {
 
 import { CURRENCIES, getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 
+type RGB = [number, number, number];
+
+const PDF_THEMES: { id: string; name: string; rgb: RGB; dot: string }[] = [
+  { id: "blue",    name: "Classic Blue",  rgb: [30, 64, 175],   dot: "#1e40af" },
+  { id: "emerald", name: "Emerald",       rgb: [4, 120, 87],    dot: "#047857" },
+  { id: "midnight",name: "Midnight",      rgb: [15, 23, 42],    dot: "#0f172a" },
+  { id: "ruby",    name: "Ruby",          rgb: [185, 28, 28],   dot: "#b91c1c" },
+  { id: "violet",  name: "Violet",        rgb: [88, 28, 135],   dot: "#581c87" },
+  { id: "amber",   name: "Amber",         rgb: [120, 53, 15],   dot: "#78350f" },
+];
+
 export default function InvoiceDetailPage() {
   const [, params] = useRoute("/invoices/:id");
   const [, navigate] = useLocation();
@@ -32,6 +43,14 @@ export default function InvoiceDetailPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [pdfThemeId, setPdfThemeId] = useState<string>(
+    () => localStorage.getItem("invoicePdfTheme") || "blue"
+  );
+
+  function selectTheme(id: string) {
+    setPdfThemeId(id);
+    localStorage.setItem("invoicePdfTheme", id);
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -74,9 +93,11 @@ export default function InvoiceDetailPage() {
       const currSymbol = CURRENCIES[currency] || currency;
       const taxLabel = settings?.taxLabel || "VAT";
       const pageW = doc.internal.pageSize.getWidth();
+      const theme = PDF_THEMES.find((t) => t.id === pdfThemeId) || PDF_THEMES[0];
+      const [pr, pg, pb] = theme.rgb;
 
       // Header bar
-      doc.setFillColor(30, 64, 175);
+      doc.setFillColor(pr, pg, pb);
       doc.rect(0, 0, pageW, 38, "F");
 
       // Company name
@@ -152,7 +173,7 @@ export default function InvoiceDetailPage() {
           `${currSymbol} ${item.unitPrice.toFixed(2)}`,
           `${currSymbol} ${(item.quantity * item.unitPrice).toFixed(2)}`,
         ]),
-        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [pr, pg, pb], textColor: 255, fontStyle: "bold", fontSize: 9 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
           0: { cellWidth: 10, halign: "center" },
@@ -192,12 +213,12 @@ export default function InvoiceDetailPage() {
       }
 
       ty += 4;
-      doc.setDrawColor(30, 64, 175);
+      doc.setDrawColor(pr, pg, pb);
       doc.line(labelCol - 20, ty, rightCol, ty);
       ty += 6;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 64, 175);
+      doc.setTextColor(pr, pg, pb);
       doc.text(`Total (${currency}):`, labelCol, ty, { align: "right" });
       doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, rightCol, ty, { align: "right" });
 
@@ -206,7 +227,7 @@ export default function InvoiceDetailPage() {
         ty += 14;
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 64, 175);
+        doc.setTextColor(pr, pg, pb);
         doc.text("Payment Details:", 14, ty);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60);
@@ -432,6 +453,27 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* PDF Theme picker */}
+            <div className="flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 bg-background">
+              <Palette className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              {PDF_THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  title={t.name}
+                  onClick={() => selectTheme(t.id)}
+                  style={{ background: t.dot }}
+                  className={`w-5 h-5 rounded-full transition-all duration-150 ${
+                    pdfThemeId === t.id
+                      ? "ring-2 ring-offset-1 ring-foreground scale-110"
+                      : "hover:scale-110 opacity-70 hover:opacity-100"
+                  }`}
+                />
+              ))}
+              <span className="text-xs text-muted-foreground ml-1 hidden sm:inline">
+                {PDF_THEMES.find((t) => t.id === pdfThemeId)?.name}
+              </span>
+            </div>
+
             <Select value={invoice.status} onValueChange={handleStatusChange} disabled={updatingStatus}>
               <SelectTrigger className="w-32" data-testid="select-invoice-status"><SelectValue /></SelectTrigger>
               <SelectContent>

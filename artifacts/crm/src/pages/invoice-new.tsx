@@ -26,6 +26,8 @@ export default function InvoiceNewPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
+  const preselectedCustomerId = new URLSearchParams(window.location.search).get("customerId") || "";
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,9 @@ export default function InvoiceNewPage() {
           setTaxEnabled(sett.taxEnabled);
           setTaxRate(sett.taxRate ?? 5);
           setDiscountEnabled(sett.discountEnabled);
+        }
+        if (preselectedCustomerId && custs.find((c) => c.id === preselectedCustomerId)) {
+          setCustomerId(preselectedCustomerId);
         }
       } finally {
         setLoading(false);

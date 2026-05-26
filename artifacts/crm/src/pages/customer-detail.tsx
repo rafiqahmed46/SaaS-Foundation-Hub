@@ -367,10 +367,10 @@ export default function CustomerDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold">Activity Timeline</h2>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => navigate("/invoices/new")} className="gap-1.5 text-xs h-8">
+              <Button size="sm" variant="outline" onClick={() => navigate(`/invoices/new?customerId=${id}`)} className="gap-1.5 text-xs h-8">
                 <FileText className="w-3.5 h-3.5" /> New Invoice
               </Button>
-              <Button size="sm" variant="outline" onClick={() => navigate("/quotations/new")} className="gap-1.5 text-xs h-8">
+              <Button size="sm" variant="outline" onClick={() => navigate(`/quotations/new?customerId=${id}`)} className="gap-1.5 text-xs h-8">
                 <FileCheck className="w-3.5 h-3.5" /> New Quote
               </Button>
             </div>

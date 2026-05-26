@@ -21,6 +21,8 @@ export default function QuotationNewPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
+  const preselectedCustomerId = new URLSearchParams(window.location.search).get("customerId") || "";
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,9 @@ export default function QuotationNewPage() {
       setCustomers(custs);
       setSettings(sett);
       if (sett) { setTaxEnabled(sett.taxEnabled); setDiscountEnabled(sett.discountEnabled); }
+      if (preselectedCustomerId && custs.find((c) => c.id === preselectedCustomerId)) {
+        setCustomerId(preselectedCustomerId);
+      }
       setLoading(false);
     }
     load();
