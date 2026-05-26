@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, CheckCircle2, AlertCircle, Users, CheckSquare, StickyNote, X, FileUp, Loader2 } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Users, CheckSquare, StickyNote, X, FileUp, Loader2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,6 +48,23 @@ const NOTE_FIELDS = [
   { key: "customerName", label: "Customer Name *", required: true,  hints: ["contact", "customer", "name", "client", "contact name"] },
   { key: "note",         label: "Note Content *",  required: true,  hints: ["note", "description", "content", "body", "details", "text", "notes"] },
   { key: "title",        label: "Title",           required: false, hints: ["title", "subject", "summary"] },
+];
+
+// Invoice fields split into two groups: invoice-level and item-level
+const INVOICE_HEADER_FIELDS = [
+  { key: "customerName",    label: "Customer Name *",  required: true,  hints: ["customer", "client", "contact", "name", "customer name", "client name", "bill to"] },
+  { key: "invoiceNumber",   label: "Invoice Number",   required: false, hints: ["invoice #", "invoice number", "invoice no", "inv #", "inv number", "number", "invoice id"] },
+  { key: "status",          label: "Status",           required: false, hints: ["status", "payment status", "invoice status"] },
+  { key: "createdAt",       label: "Invoice Date",     required: false, hints: ["date", "invoice date", "created", "created date", "issue date"] },
+  { key: "dueDate",         label: "Due Date",         required: false, hints: ["due date", "due", "payment due", "due_date", "expiry"] },
+  { key: "notes",           label: "Notes",            required: false, hints: ["notes", "note", "remarks", "memo", "comment"] },
+];
+
+const INVOICE_ITEM_FIELDS = [
+  { key: "description", label: "Item Description *", required: true,  hints: ["description", "item", "product", "service", "item description", "details", "name"] },
+  { key: "quantity",    label: "Quantity",            required: false, hints: ["qty", "quantity", "units", "count"] },
+  { key: "unitPrice",   label: "Unit Price",          required: false, hints: ["rate", "price", "unit price", "unit cost", "amount", "cost"] },
+  { key: "total",       label: "Line Total (fallback)",required: false, hints: ["total", "line total", "item total", "amount", "subtotal"] },
 ];
 
 // ── Auto-map columns ──────────────────────────────────────────────────────────
@@ -447,10 +464,176 @@ function NotesTab({ companyId }: { companyId: string }) {
   );
 }
 
+// ── Invoices tab ──────────────────────────────────────────────────────────────
+
+function normaliseInvoiceStatus(raw: string): InvoiceStatus {
+  const v = raw.toLowerCase().trim();
+  if (v === "paid" || v === "complete" || v === "completed") return "paid";
+  if (v.includes("cancel") || v === "void" || v === "voided") return "cancelled";
+  if (v === "sent" || v === "issued" || v === "open") return "sent";
+  if (v === "overdue" || v === "late") return "overdue";
+  return "draft";
+}
+
+function parseDate(raw: string): string {
+  if (!raw) return new Date().toISOString();
+  try {
+    // Handle DD/MM/YYYY
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) {
+      const [d, m, y] = raw.split("/");
+      return new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`).toISOString();
+    }
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+  } catch { /* fall through */ }
+  return new Date().toISOString();
+}
+
+// Combined fields for the single mapper
+const ALL_INVOICE_FIELDS = [...INVOICE_HEADER_FIELDS, ...INVOICE_ITEM_FIELDS];
+
+type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
+
+function InvoicesTab({ companyId }: { companyId: string }) {
+  const { toast } = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [map, setMap] = useState<ColumnMap>({});
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const [showHeaderFields, setShowHeaderFields] = useState(true);
+
+  function handleFile(f: File) {
+    setFile(f); setResult(null);
+    Papa.parse<ParsedRow>(f, {
+      header: true, skipEmptyLines: true,
+      complete: ({ data, meta }) => {
+        const cols = meta.fields || [];
+        setColumns(cols); setRows(data);
+        setMap(autoMap(cols, ALL_INVOICE_FIELDS));
+      },
+    });
+  }
+
+  async function handleImport() {
+    if (!map["customerName"]) { toast({ title: "Map the Customer Name column first", variant: "destructive" }); return; }
+    if (!map["description"]) { toast({ title: "Map the Item Description column first", variant: "destructive" }); return; }
+
+    setImporting(true); setProgress(0);
+    const res: ImportResult = { success: 0, skipped: 0, errors: [] };
+
+    // Load customers for name→id lookup
+    const { getDocs, query, collection: col, where } = await import("firebase/firestore");
+    const snap = await getDocs(query(col(db, "customers"), where("companyId", "==", companyId)));
+    const customerMap: Record<string, { id: string; name: string }> = {};
+    snap.forEach((d) => {
+      const name = (d.data().name as string || "").toLowerCase().trim();
+      customerMap[name] = { id: d.id, name: d.data().name as string };
+    });
+
+    // Group rows by invoice number (or treat each row as its own invoice)
+    const groups: Map<string, ParsedRow[]> = new Map();
+    rows.forEach((row, idx) => {
+      const invNum = map["invoiceNumber"] ? row[map["invoiceNumber"]]?.trim() : "";
+      const key = invNum || `__row_${idx}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    });
+
+    const invoiceList = Array.from(groups.entries());
+    const batches = chunk(invoiceList, 200); // 200 invoices per batch (each has set op)
+
+    for (let bi = 0; bi < batches.length; bi++) {
+      const batch = writeBatch(db);
+      for (const [invKey, invRows] of batches[bi]) {
+        const firstRow = invRows[0];
+        const custRaw = firstRow[map["customerName"]]?.trim() || "";
+        const custLookup = customerMap[custRaw.toLowerCase()];
+
+        if (!custRaw) { res.skipped++; res.errors.push(`Row missing customer name`); continue; }
+
+        // Build line items
+        const items = invRows
+          .filter((r) => r[map["description"]]?.trim())
+          .map((r) => {
+            const qty = parseFloat(r[map["quantity"]] || "") || 1;
+            const price = parseFloat(r[map["unitPrice"]] || "") || 0;
+            const lineTotal = parseFloat(r[map["total"]] || "") || 0;
+            const unitPrice = price || (qty > 0 ? lineTotal / qty : lineTotal);
+            return { description: r[map["description"]]?.trim() || "", quantity: qty, unitPrice };
+          });
+
+        if (items.length === 0) { res.skipped++; res.errors.push(`Invoice ${invKey}: no valid items`); continue; }
+
+        const subtotal = items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
+        const invNumber = invKey.startsWith("__row_") ? "" : invKey;
+
+        const ref = doc(collection(db, "invoices"));
+        batch.set(ref, {
+          companyId,
+          customerId:      custLookup?.id || "",
+          customerName:    custLookup?.name || custRaw,
+          invoiceNumber:   invNumber,
+          status:          map["status"] ? normaliseInvoiceStatus(firstRow[map["status"]] || "") : "draft",
+          items,
+          subtotal,
+          taxEnabled:      false,
+          discountEnabled: false,
+          total:           subtotal,
+          notes:           map["notes"] ? firstRow[map["notes"]]?.trim() || "" : "",
+          dueDate:         map["dueDate"] ? firstRow[map["dueDate"]]?.trim() || "" : "",
+          createdAt:       map["createdAt"] ? parseDate(firstRow[map["createdAt"]] || "") : new Date().toISOString(),
+        });
+        res.success++;
+      }
+      try { await batch.commit(); } catch (e: unknown) { res.errors.push(`Batch ${bi + 1}: ${(e as Error).message}`); res.success -= batches[bi].length; }
+      setProgress(Math.round(((bi + 1) / batches.length) * 100));
+    }
+    setImporting(false); setResult(res);
+    if (res.success > 0) toast({ title: `${res.success} invoices imported!` });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+        <strong>How it works:</strong> If your CSV has one row per line item (multiple rows for the same invoice), map the Invoice Number column and rows will be grouped automatically. If each row is a separate invoice, leave Invoice Number unmapped.
+      </div>
+      <DropZone file={file} onFile={handleFile} />
+      {result && <ResultBanner result={result} onClear={() => setResult(null)} />}
+      {columns.length > 0 && (
+        <>
+          <div>
+            <p className="text-sm font-medium mb-2">Preview <span className="text-muted-foreground font-normal">({rows.length} rows, ~{new Map(rows.map((r,i) => [map["invoiceNumber"] ? r[map["invoiceNumber"]]?.trim() || `r${i}` : `r${i}`, 1])).size} invoices detected)</span></p>
+            <PreviewTable rows={rows} columns={columns} />
+          </div>
+
+          {/* Tabbed field groups */}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <button onClick={() => setShowHeaderFields(true)} className={cn("text-xs px-3 py-1 rounded-full border font-medium transition-colors", showHeaderFields ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary")}>Invoice Fields</button>
+              <button onClick={() => setShowHeaderFields(false)} className={cn("text-xs px-3 py-1 rounded-full border font-medium transition-colors", !showHeaderFields ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary")}>Item Fields</button>
+            </div>
+            {showHeaderFields
+              ? <ColumnMapper fields={INVOICE_HEADER_FIELDS} csvColumns={columns} map={map} onChange={setMap} />
+              : <ColumnMapper fields={INVOICE_ITEM_FIELDS} csvColumns={columns} map={map} onChange={setMap} />}
+          </div>
+
+          <Button onClick={handleImport} disabled={importing} className="w-full gap-2">
+            {importing ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing… {progress}%</> : <><Upload className="w-4 h-4" /> Import Invoices</>}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const TABS = [
   { key: "customers", label: "Customers", icon: Users },
+  { key: "invoices",  label: "Invoices",  icon: FileText },
   { key: "tasks",     label: "Tasks",     icon: CheckSquare },
   { key: "notes",     label: "Notes",     icon: StickyNote },
 ];
@@ -504,11 +687,13 @@ export default function ImportPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {tab === "customers" && "Import Customers"}
+              {tab === "invoices"  && "Import Invoices"}
               {tab === "tasks" && "Import Tasks"}
               {tab === "notes" && "Import Notes"}
             </CardTitle>
             <CardDescription>
               {tab === "customers" && "Upload your customers CSV. Map the columns, then click Import."}
+              {tab === "invoices"  && "Upload your invoices CSV. Rows with the same invoice number are grouped as one invoice with multiple line items."}
               {tab === "tasks" && "Upload your tasks CSV. Status and priority are auto-converted."}
               {tab === "notes" && "Upload your notes CSV. Notes will be matched to customers by name."}
             </CardDescription>
@@ -518,6 +703,8 @@ export default function ImportPage() {
               <p className="text-sm text-muted-foreground">Your company workspace isn't ready yet. Complete setup first.</p>
             ) : tab === "customers" ? (
               <CustomersTab companyId={companyId} />
+            ) : tab === "invoices" ? (
+              <InvoicesTab companyId={companyId} />
             ) : tab === "tasks" ? (
               <TasksTab companyId={companyId} />
             ) : (
