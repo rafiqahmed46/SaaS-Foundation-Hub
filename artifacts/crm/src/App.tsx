@@ -20,6 +20,7 @@ import InvoiceEditPage from "@/pages/invoice-edit";
 import QuotationEditPage from "@/pages/quotation-edit";
 import TasksPage from "@/pages/tasks";
 import SettingsPage from "@/pages/settings";
+import ImportPage from "@/pages/import";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ function Router() {
       <Route path="/quotations/:id" component={() => <ProtectedRoute component={QuotationDetailPage} />} />
       <Route path="/quotations" component={() => <ProtectedRoute component={QuotationsPage} />} />
       <Route path="/tasks" component={() => <ProtectedRoute component={TasksPage} />} />
+      <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route component={NotFound} />
     </Switch>
