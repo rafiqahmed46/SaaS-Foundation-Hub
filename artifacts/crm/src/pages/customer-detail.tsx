@@ -21,11 +21,12 @@ import {
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Mail, FileText,
   FileCheck, Pencil, TrendingUp, Receipt, ClipboardList, Navigation,
-  CheckSquare, Circle, Clock, CheckCircle2, AlertTriangle, Trash2, Plus, Download,
+  CheckSquare, Circle, Clock, CheckCircle2, AlertTriangle, Trash2, Plus, Download, Eye, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
@@ -277,12 +278,11 @@ export default function CustomerDetailPage() {
     }
   }
 
-  async function handleDownloadSchedulePDF() {
-    if (!customer) return;
-    try {
-      const { jsPDF } = await import("jspdf");
-      const autoTable = (await import("jspdf-autotable")).default;
-      const doc = new jsPDF();
+  async function buildSchedulePDF() {
+    if (!customer) throw new Error("No customer");
+    const { jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+    const doc = new jsPDF();
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
       const brandR = 30, brandG = 64, brandB = 175;
@@ -495,12 +495,71 @@ export default function CustomerDetailPage() {
       }
       doc.text(`Page 1`, pageW - 14, pageH - 10, { align: "right" });
 
-      doc.save(`service-schedule-${customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+      return doc;
+  }
+
+  const schedulePDFFilename = () =>
+    `service-schedule-${customer?.name.replace(/\s+/g, "-").toLowerCase() ?? "customer"}.pdf`;
+
+  async function handleViewSchedulePDF() {
+    if (!customer) return;
+    try {
+      const doc = await buildSchedulePDF();
+      const url = doc.output("bloburl");
+      window.open(url as unknown as string, "_blank");
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Could not generate PDF", variant: "destructive" });
+    }
+  }
+
+  async function handleDownloadSchedulePDF() {
+    if (!customer) return;
+    try {
+      const doc = await buildSchedulePDF();
+      doc.save(schedulePDFFilename());
       toast({ title: "Service Schedule PDF downloaded" });
     } catch (err) {
       console.error(err);
       toast({ title: "Could not generate PDF", variant: "destructive" });
     }
+  }
+
+  function handleWhatsAppSchedule() {
+    if (!customer?.phone) {
+      toast({ title: "No phone number", description: "This customer has no phone number on file.", variant: "destructive" });
+      return;
+    }
+    const today = new Date().toLocaleDateString("en-GB");
+    const company = settings?.companyName || "Our Company";
+    const trn = settings?.trn ? `TRN: ${settings.trn}` : "";
+    const statusEmoji = { todo: "🔲", "in-progress": "🔄", done: "✅" } as Record<string, string>;
+    const priorityTag = { low: "[Low]", medium: "[Med]", high: "[HIGH]" } as Record<string, string>;
+    const taskLines = tasks.map((t, i) => {
+      const due = t.dueDate ? ` | Due: ${new Date(t.dueDate).toLocaleDateString("en-GB")}` : "";
+      return `${i + 1}. ${statusEmoji[t.status]} ${t.title}${due} ${priorityTag[t.priority]}`;
+    }).join("\n");
+
+    const done = tasks.filter((t) => t.status === "done").length;
+    const msg = [
+      `*SERVICE SCHEDULE*`,
+      `*${company}*${trn ? `\n${trn}` : ""}`,
+      ``,
+      `*Prepared for:* ${customer.name}`,
+      customer.phone ? `Tel: ${customer.phone}` : "",
+      customer.email ? `Email: ${customer.email}` : "",
+      customer.address ? `Address: ${customer.address}` : "",
+      ``,
+      `*Date:* ${today}`,
+      ``,
+      `*TASKS:*`,
+      taskLines,
+      ``,
+      `*Summary:* ${tasks.length} tasks | ✅ Done: ${done} | 🔄 In Progress: ${tasks.filter((t) => t.status === "in-progress").length} | 🔲 Pending: ${tasks.filter((t) => t.status === "todo").length}`,
+    ].filter((l) => l !== undefined).join("\n");
+
+    const phone = customer.phone.replace(/\D/g, "");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
   // ── Derived stats ────────────────────────────────────────────────────────
@@ -704,9 +763,28 @@ export default function CustomerDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 {tasks.length > 0 && (
-                  <Button size="sm" variant="outline" onClick={handleDownloadSchedulePDF} className="gap-1.5 text-xs h-8">
-                    <Download className="w-3.5 h-3.5" /> PDF Schedule
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8">
+                        <Download className="w-3.5 h-3.5" /> Schedule <ChevronDown className="w-3 h-3 ml-0.5 opacity-60" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleViewSchedulePDF} className="gap-2 cursor-pointer">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        <span>View PDF</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDownloadSchedulePDF} className="gap-2 cursor-pointer">
+                        <Download className="w-4 h-4 text-primary" />
+                        <span>Download PDF</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleWhatsAppSchedule} className="gap-2 cursor-pointer">
+                        <MessageCircle className="w-4 h-4 text-green-600" />
+                        <span>Send via WhatsApp</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <Button size="sm" onClick={openAddTask} className="gap-1.5 text-xs h-8">
                   <Plus className="w-3.5 h-3.5" /> Add Task
