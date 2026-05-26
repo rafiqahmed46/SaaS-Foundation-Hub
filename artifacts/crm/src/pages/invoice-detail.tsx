@@ -325,128 +325,139 @@ export default function InvoiceDetailPage() {
       const pageW = doc.internal.pageSize.getWidth();
       const cx = pageW / 2;
 
-      // Header
-      doc.setFillColor(30, 64, 175);
-      doc.rect(0, 0, pageW, 30, "F");
-      doc.setFontSize(15);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      doc.text("RECEIPT VOUCHER", cx, 13, { align: "center" });
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
-      doc.text(settings?.companyName || "Company", cx, 22, { align: "center" });
-      if (settings?.taxEnabled && settings?.trn) {
-        doc.setFontSize(7.5);
-        doc.text(`TRN: ${settings.trn}`, cx, 27, { align: "center" });
-      }
+      const RM = 12; // A5 margin
+      const theme2 = PDF_THEMES.find((t) => t.id === pdfThemeId) || PDF_THEMES[0];
+      const [rpr, rpg, rpb] = theme2.rgb;
 
-      let y = 40;
-      doc.setTextColor(0);
-      doc.setFontSize(9);
+      // ── Letterhead header bar (40 mm) ──────────────────────────────────────
+      doc.setFillColor(rpr, rpg, rpb);
+      doc.rect(0, 0, pageW, 40, "F");
 
-      // Grid of meta fields
-      const metaLeft: [string, string][] = [
-        ["Receipt For:", invoice.customerName || "—"],
-        ["Date:", fmtDate(new Date().toISOString())],
-      ];
-      const metaRight: [string, string][] = [
-        ["Invoice #:", invoice.invoiceNumber],
-        ["Status:", invoice.status.toUpperCase()],
-      ];
-      if ((invoice as unknown as { poNumber?: string }).poNumber) {
-        metaLeft.push(["PO No:", (invoice as unknown as { poNumber: string }).poNumber]);
-      }
-      metaLeft.forEach(([label, val], i) => {
-        doc.setFont("helvetica", "bold"); doc.setTextColor(100);
-        doc.text(label, 14, y + i * 12);
-        doc.setFont("helvetica", "normal"); doc.setTextColor(0);
-        doc.text(val, 14, y + i * 12 + 5.5);
+      // Company name — left
+      doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
+      doc.text(settings?.companyName || "Company", RM, 16);
+
+      // "RECEIPT VOUCHER" — right
+      doc.setFontSize(18);
+      doc.text("RECEIPT VOUCHER", pageW - RM, 17, { align: "right" });
+
+      // Company sub-details — left
+      doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 215, 255);
+      let rhy = 24;
+      if (settings?.address) { doc.text(settings.address, RM, rhy); rhy += 5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, RM, rhy); }
+
+      // Invoice # / Date / TRN — right
+      doc.setTextColor(180, 205, 255); doc.setFontSize(8);
+      if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - RM, 25, { align: "right" }); }
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - RM, 32, { align: "right" });
+      doc.text(`Date: ${fmtDate(new Date().toISOString())}`, pageW - RM, 38, { align: "right" });
+
+      // ── Bill To block ──────────────────────────────────────────────────────
+      let y = 50;
+      doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(150);
+      doc.text("RECEIPT FOR", RM, y);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(20);
+      doc.text(invoice.customerName || "—", RM, y + 7);
+
+      // Right meta
+      const rcMetaLbl = pageW - RM - 38;
+      const rcMetaVal = pageW - RM;
+      const rcMeta: [string, string][] = [["Status:", invoice.status.toUpperCase()]];
+      if ((invoice as unknown as { poNumber?: string }).poNumber)
+        rcMeta.unshift(["PO No:", (invoice as unknown as { poNumber: string }).poNumber]);
+      if (invoice.dueDate) rcMeta.unshift(["Due Date:", fmtDate(invoice.dueDate)]);
+      let rry = y;
+      rcMeta.forEach(([lbl, val]) => {
+        doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(120);
+        doc.text(lbl, rcMetaLbl, rry, { align: "right" });
+        doc.setFont("helvetica", "normal"); doc.setTextColor(20);
+        doc.text(val, rcMetaVal, rry, { align: "right" });
+        rry += 7;
       });
-      metaRight.forEach(([label, val], i) => {
-        doc.setFont("helvetica", "bold"); doc.setTextColor(100);
-        doc.text(label, cx + 5, y + i * 12);
-        doc.setFont("helvetica", "normal"); doc.setTextColor(0);
-        doc.text(val, cx + 5, y + i * 12 + 5.5);
-      });
 
-      y += Math.max(metaLeft.length, metaRight.length) * 12 + 6;
+      y = Math.max(y + 14, rry + 3);
+      doc.setDrawColor(220); doc.setLineWidth(0.3);
+      doc.line(RM, y, pageW - RM, y);
+      y += 6;
 
-      doc.setDrawColor(200);
-      doc.line(14, y, pageW - 14, y);
-      y += 7;
-
-      // Items
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text("DESCRIPTION", 14, y);
-      doc.text(`AMOUNT (${currency})`, pageW - 14, y, { align: "right" });
-      y += 4.5;
-      doc.setDrawColor(220);
-      doc.line(14, y, pageW - 14, y);
+      // ── Items ──────────────────────────────────────────────────────────────
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(120);
+      doc.text("DESCRIPTION", RM, y);
+      doc.text(`AMOUNT (${currency})`, pageW - RM, y, { align: "right" });
+      y += 4;
+      doc.setDrawColor(220); doc.line(RM, y, pageW - RM, y);
       y += 5;
 
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(30);
       invoice.items.forEach((item) => {
         const lineTotal = item.quantity * item.unitPrice;
-        const desc = item.description ? (item.quantity > 1 ? `${item.description} (×${item.quantity})` : item.description) : `Item (×${item.quantity})`;
-        doc.text(desc, 14, y, { maxWidth: pageW - 60 });
-        doc.text(`${currSymbol} ${lineTotal.toFixed(2)}`, pageW - 14, y, { align: "right" });
-        y += 7;
+        const desc = item.description
+          ? (item.quantity > 1 ? `${item.description} (×${item.quantity})` : item.description)
+          : `Item (×${item.quantity})`;
+        const descLines = doc.splitTextToSize(desc, pageW - RM * 2 - 28);
+        doc.text(descLines, RM, y);
+        doc.text(`${currSymbol} ${lineTotal.toFixed(2)}`, pageW - RM, y, { align: "right" });
+        y += descLines.length * 5.5 + 2;
       });
 
-      doc.line(14, y, pageW - 14, y);
+      doc.setDrawColor(200); doc.line(RM, y, pageW - RM, y);
       y += 5;
 
-      // Subtotals
+      // ── Subtotals ──────────────────────────────────────────────────────────
+      const rcTotLbl = pageW - RM - 40;
+      const rcTotVal = pageW - RM;
+      const rcTotRow = (lbl: string, val: string) => {
+        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(110);
+        doc.text(lbl, rcTotLbl, y, { align: "right" });
+        doc.setTextColor(20); doc.text(val, rcTotVal, y, { align: "right" });
+        y += 7;
+      };
       if (settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null) {
-        doc.setTextColor(100);
-        doc.text(`Subtotal`, 14, y);
-        doc.text(`${currSymbol} ${invoice.subtotal.toFixed(2)}`, pageW - 14, y, { align: "right" });
-        y += 6;
-        doc.text(`${taxLabel} (${invoice.taxRate}%)`, 14, y);
-        doc.text(`${currSymbol} ${invoice.taxAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
-        y += 6;
+        rcTotRow("Subtotal:", `${currSymbol} ${invoice.subtotal.toFixed(2)}`);
+        rcTotRow(`${taxLabel} (${invoice.taxRate}%):`, `${currSymbol} ${invoice.taxAmount.toFixed(2)}`);
       }
       if (settings?.discountEnabled && invoice.discountEnabled && invoice.discountAmount != null) {
-        doc.setTextColor(100);
-        doc.text("Discount", 14, y);
-        doc.text(`- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
-        y += 6;
+        rcTotRow("Discount:", `- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`);
       }
 
-      // Total box
-      doc.setFillColor(240, 245, 255);
-      doc.roundedRect(14, y, pageW - 28, 14, 2, 2, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(30, 64, 175);
-      doc.text("TOTAL", 20, y + 9);
-      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, pageW - 20, y + 9, { align: "right" });
+      // Full-width TOTAL row
+      y += 2;
+      doc.setFillColor(rpr, rpg, rpb);
+      doc.rect(RM, y, pageW - RM * 2, 14, "F");
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
+      doc.text(`TOTAL  ${currency}`, RM + 4, y + 9.5);
+      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, pageW - RM - 3, y + 9.5, { align: "right" });
       y += 20;
 
       // Bank details
       if (settings?.bankName || settings?.bankIban) {
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(60);
-        doc.text("Pay to:", 14, y); y += 4.5;
-        doc.setFont("helvetica", "normal");
-        if (settings?.bankName) { doc.text(`Bank: ${settings.bankName}`, 14, y); y += 4; }
-        if (settings?.bankAccount) { doc.text(`Account: ${settings.bankAccount}`, 14, y); y += 4; }
-        if (settings?.bankIban) { doc.text(`IBAN: ${settings.bankIban}`, 14, y); y += 4; }
-        y += 2;
+        doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(rpr, rpg, rpb);
+        doc.text("Payment Details:", RM, y); y += 6;
+        doc.setFont("helvetica", "normal"); doc.setTextColor(60);
+        if (settings?.bankName)    { doc.text(`Bank: ${settings.bankName}`, RM, y);    y += 5; }
+        if (settings?.bankAccount) { doc.text(`Account: ${settings.bankAccount}`, RM, y); y += 5; }
+        if (settings?.bankIban)    { doc.text(`IBAN: ${settings.bankIban}`, RM, y);    y += 5; }
+        y += 3;
       }
 
-      // Footer
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(150);
-      doc.text("Thank you for your business!", cx, y + 4, { align: "center" });
-      if (settings?.email) { doc.text(settings.email, cx, y + 9, { align: "center" }); }
-      if (settings?.phone) { doc.text(settings.phone, cx, y + 13, { align: "center" }); }
-      if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, cx, y + 17, { align: "center" }); }
+      // Notes
+      if (invoice.notes) {
+        doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(20);
+        doc.text("Notes:", RM, y); y += 5;
+        doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+        const nLines = doc.splitTextToSize(invoice.notes, pageW - RM * 2);
+        doc.text(nLines, RM, y);
+      }
+
+      // ── Page footer ────────────────────────────────────────────────────────
+      const pageH = doc.internal.pageSize.getHeight();
+      doc.setDrawColor(210, 220, 240); doc.setLineWidth(0.3);
+      doc.line(RM, pageH - 14, pageW - RM, pageH - 14);
+      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(150);
+      doc.text(settings?.companyName || "", RM, pageH - 7);
+      if (settings?.taxEnabled && settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 7, { align: "center" });
+      doc.text("Thank you!", pageW - RM, pageH - 7, { align: "right" });
 
       doc.save(`receipt-${invoice.invoiceNumber}.pdf`);
       toast({ title: "Receipt Voucher downloaded" });
