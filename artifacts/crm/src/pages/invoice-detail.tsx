@@ -208,7 +208,7 @@ export default function InvoiceDetailPage() {
       totRow("Subtotal:", `${currSymbol} ${invoice.subtotal.toFixed(2)}`);
       if (settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null)
         totRow(`${taxLabel} (${invoice.taxRate}%):`, `${currSymbol} ${invoice.taxAmount.toFixed(2)}`);
-      if (invoice.discountEnabled && invoice.discountAmount != null)
+      if (settings?.discountEnabled && invoice.discountEnabled && invoice.discountAmount != null)
         totRow("Discount:", `- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`);
 
       // Full-width TOTAL row
@@ -412,7 +412,7 @@ export default function InvoiceDetailPage() {
         doc.text(`${currSymbol} ${invoice.taxAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
         y += 6;
       }
-      if (invoice.discountEnabled && invoice.discountAmount != null) {
+      if (settings?.discountEnabled && invoice.discountEnabled && invoice.discountAmount != null) {
         doc.setTextColor(100);
         doc.text("Discount", 14, y);
         doc.text(`- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`, pageW - 14, y, { align: "right" });
@@ -633,7 +633,7 @@ export default function InvoiceDetailPage() {
                 {settings?.taxEnabled && invoice.taxEnabled && invoice.taxAmount != null && (
                   <div className="flex justify-between"><span className="text-muted-foreground">{taxLabel} ({invoice.taxRate}%)</span><span>{currSymbol} {invoice.taxAmount.toFixed(2)}</span></div>
                 )}
-                {invoice.discountEnabled && invoice.discountAmount != null && (
+                {settings?.discountEnabled && invoice.discountEnabled && invoice.discountAmount != null && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>- {currSymbol} {invoice.discountAmount.toFixed(2)}</span></div>
                 )}
                 <Separator />
