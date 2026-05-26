@@ -148,11 +148,21 @@ export default function QuotationDetailPage() {
       doc.setFillColor(30, 64, 175);
       doc.rect(0, 0, pageW, 54, "F");
 
+      // Logo (left side of header bar)
+      let logoEndX = M;
+      if (settings?.companyLogo) {
+        try {
+          const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(settings.companyLogo, fmt, M, 8, 28, 28);
+          logoEndX = M + 33;
+        } catch { /* skip logo on error */ }
+      }
+
       // Company name (left)
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", M, 22);
+      doc.text(settings?.companyName || "Company", logoEndX, 22);
 
       // "QUOTATION" label (right)
       doc.setFontSize(28);
@@ -163,9 +173,9 @@ export default function QuotationDetailPage() {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(200, 215, 255);
       let hy = 32;
-      if (settings?.address) { doc.text(settings.address, M, hy); hy += 5.5; }
-      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, M, hy); hy += 5.5; }
-      if (settings?.email)   { doc.text(settings.email, M, hy); }
+      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5.5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5.5; }
+      if (settings?.email)   { doc.text(settings.email, logoEndX, hy); }
 
       // Quote meta (right)
       doc.setTextColor(180, 205, 255);

@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Save, Percent, Tag, Globe, CreditCard } from "lucide-react";
+import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X } from "lucide-react";
 
 const CURRENCIES = [
   { value: "AED", label: "AED — UAE Dirham (AED)" },
@@ -80,6 +80,38 @@ export default function SettingsPage() {
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function resizeImage(dataUrl: string, maxW: number, maxH: number): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please choose an image under 2 MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      let dataUrl = ev.target?.result as string;
+      if (file.size > 300 * 1024) dataUrl = await resizeImage(dataUrl, 500, 250);
+      update("companyLogo", dataUrl as Settings["companyLogo"]);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleSave() {
@@ -163,8 +195,22 @@ export default function SettingsPage() {
                   <Input id="s-website" value={settings.website || ""} onChange={(e) => update("website", e.target.value)} placeholder="https://company.ae" data-testid="input-website" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="s-logo">Logo URL</Label>
-                  <Input id="s-logo" value={settings.companyLogo || ""} onChange={(e) => update("companyLogo", e.target.value)} placeholder="https://... (PNG, JPG, SVG)" data-testid="input-logo-url" />
+                  <Label>Company Logo</Label>
+                  {settings.companyLogo ? (
+                    <div className="flex items-center gap-3">
+                      <img src={settings.companyLogo} alt="logo" className="h-16 w-auto max-w-[160px] object-contain rounded border bg-white p-1" />
+                      <Button type="button" variant="outline" size="sm" onClick={() => update("companyLogo", "" as Settings["companyLogo"])}>
+                        <X className="w-4 h-4 mr-1" /> Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/40 transition-colors" data-testid="input-logo-upload">
+                      <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">Tap to choose from gallery or files</span>
+                      <span className="text-xs text-muted-foreground mt-0.5">PNG, JPG — max 2 MB</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                    </label>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">

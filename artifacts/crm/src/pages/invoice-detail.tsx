@@ -103,11 +103,21 @@ export default function InvoiceDetailPage() {
       doc.setFillColor(pr, pg, pb);
       doc.rect(0, 0, pageW, 54, "F");
 
+      // Logo (left side of header bar)
+      let logoEndX = M;
+      if (settings?.companyLogo) {
+        try {
+          const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(settings.companyLogo, fmt, M, 8, 28, 28);
+          logoEndX = M + 33;
+        } catch { /* skip logo on error */ }
+      }
+
       // Company name (left, large)
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", M, 22);
+      doc.text(settings?.companyName || "Company", logoEndX, 22);
 
       // "INVOICE" label (right, very large)
       doc.setFontSize(30);
@@ -118,9 +128,9 @@ export default function InvoiceDetailPage() {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(200, 215, 255);
       let hy = 32;
-      if (settings?.address) { doc.text(settings.address, M, hy); hy += 5.5; }
-      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, M, hy); hy += 5.5; }
-      if (settings?.email)   { doc.text(settings.email, M, hy); }
+      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5.5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5.5; }
+      if (settings?.email)   { doc.text(settings.email, logoEndX, hy); }
 
       // Invoice meta (right, below title)
       doc.setTextColor(180, 205, 255);
@@ -333,9 +343,19 @@ export default function InvoiceDetailPage() {
       doc.setFillColor(rpr, rpg, rpb);
       doc.rect(0, 0, pageW, 40, "F");
 
+      // Logo (left side of receipt header)
+      let rcLogoEndX = RM;
+      if (settings?.companyLogo) {
+        try {
+          const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(settings.companyLogo, fmt, RM, 6, 22, 22);
+          rcLogoEndX = RM + 26;
+        } catch { /* skip logo on error */ }
+      }
+
       // Company name — left
       doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", RM, 16);
+      doc.text(settings?.companyName || "Company", rcLogoEndX, 16);
 
       // "RECEIPT VOUCHER" — right
       doc.setFontSize(18);
@@ -344,8 +364,8 @@ export default function InvoiceDetailPage() {
       // Company sub-details — left
       doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 215, 255);
       let rhy = 24;
-      if (settings?.address) { doc.text(settings.address, RM, rhy); rhy += 5; }
-      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, RM, rhy); }
+      if (settings?.address) { doc.text(settings.address, rcLogoEndX, rhy); rhy += 5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, rcLogoEndX, rhy); }
 
       // Invoice # / Date / TRN — right
       doc.setTextColor(180, 205, 255); doc.setFontSize(8);
