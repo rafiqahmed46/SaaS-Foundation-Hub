@@ -136,40 +136,54 @@ export default function QuotationDetailPage() {
     {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
-      const doc = new jsPDF();
+      const doc = new jsPDF({ format: "a4" });
       const currency = quotation?.currency || settings?.currency || "AED";
       const currSymbol = getCurrencySymbol(currency);
       const taxLabel = settings?.taxLabel || "VAT";
-      const pageW = doc.internal.pageSize.getWidth();
+      const pageW = doc.internal.pageSize.getWidth();   // 210 mm
+      const pageH = doc.internal.pageSize.getHeight();  // 297 mm
+      const M = 18; // margin
 
-      // Header bar
+      // ── Header bar (54 mm) ─────────────────────────────────────────────────
       doc.setFillColor(30, 64, 175);
-      doc.rect(0, 0, pageW, 38, "F");
+      doc.rect(0, 0, pageW, 54, "F");
 
-      doc.setFontSize(18);
+      // Company name (left)
+      doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", 14, 16);
-      doc.setFontSize(22);
-      doc.text("QUOTATION", pageW - 14, 16, { align: "right" });
+      doc.text(settings?.companyName || "Company", M, 22);
 
+      // "QUOTATION" label (right)
+      doc.setFontSize(28);
+      doc.text("QUOTATION", pageW - M, 24, { align: "right" });
+
+      // Company sub-details
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(200, 215, 255);
+      let hy = 32;
+      if (settings?.address) { doc.text(settings.address, M, hy); hy += 5.5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, M, hy); hy += 5.5; }
+      if (settings?.email)   { doc.text(settings.email, M, hy); }
+
+      // Quote meta (right)
+      doc.setTextColor(180, 205, 255);
+      doc.setFontSize(10);
+      if (settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
+      doc.text(`Quote #: ${quotation.quoteNumber}`, pageW - M, 42, { align: "right" });
+      doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - M, 50, { align: "right" });
+
+      // ── Prepared For + Meta block ──────────────────────────────────────────
+      let y = 68;
       doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 210, 255);
-      let hy = 25;
-      if (settings?.address) { doc.text(settings.address, 14, hy); hy += 4.5; }
-      if (settings?.phone) { doc.text(`Tel: ${settings.phone}`, 14, hy); }
-      if (settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW - 14, 25, { align: "right" });
-      doc.text(`Quote #: ${quotation.quoteNumber}`, pageW - 14, 31, { align: "right" });
-      doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - 14, 36, { align: "right" });
-
-      doc.setTextColor(0);
-      let y = 50;
-      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("Prepared For:", 14, y);
-      doc.setFont("helvetica", "normal");
-      doc.text(quotation.customerName || "—", 14, y + 5);
+      doc.setTextColor(150);
+      doc.text("PREPARED FOR", M, y);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20);
+      doc.text(quotation.customerName || "—", M, y + 8);
 
       const metaRight: [string, string][] = [
         ["Quote No:", quotation.quoteNumber],
@@ -179,21 +193,23 @@ export default function QuotationDetailPage() {
       metaRight.push(["Status:", quotation.status.toUpperCase()]);
       let ry = y;
       metaRight.forEach(([label, value]) => {
-        doc.setFont("helvetica", "bold"); doc.setTextColor(100);
-        doc.text(label, pageW - 70, ry, { align: "right" });
-        doc.setFont("helvetica", "normal"); doc.setTextColor(0);
-        doc.text(value, pageW - 14, ry, { align: "right" });
-        ry += 6;
+        doc.setFontSize(10.5);
+        doc.setFont("helvetica", "bold"); doc.setTextColor(120);
+        doc.text(label, pageW - 74, ry, { align: "right" });
+        doc.setFont("helvetica", "normal"); doc.setTextColor(20);
+        doc.text(value, pageW - M, ry, { align: "right" });
+        ry += 8;
       });
 
-      y += 22;
+      y = Math.max(y + 22, ry + 4);
       doc.setDrawColor(220);
-      doc.line(14, y, pageW - 14, y);
-      y += 6;
+      doc.setLineWidth(0.4);
+      doc.line(M, y, pageW - M, y);
+      y += 8;
 
       autoTable(doc, {
         startY: y,
-        head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Total (${currency})`]],
+        head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Amount (${currency})`]],
         body: quotation.items.map((item, i) => [
           String(i + 1),
           item.description || "—",
@@ -201,57 +217,69 @@ export default function QuotationDetailPage() {
           `${currSymbol} ${item.unitPrice.toFixed(2)}`,
           `${currSymbol} ${(item.quantity * item.unitPrice).toFixed(2)}`,
         ]),
-        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 11 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-          0: { cellWidth: 10, halign: "center" },
-          2: { cellWidth: 15, halign: "center" },
-          3: { cellWidth: 38, halign: "right" },
-          4: { cellWidth: 38, halign: "right" },
+          0: { cellWidth: 12, halign: "center" },
+          2: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 42, halign: "right" },
+          4: { cellWidth: 42, halign: "right" },
         },
-        margin: { left: 14, right: 14 },
-        styles: { fontSize: 9 },
+        margin: { left: M, right: M },
+        styles: { fontSize: 11, cellPadding: 4.5, textColor: 40 },
       });
 
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
-      const rightCol = pageW - 14;
-      const labelCol = pageW - 65;
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      const rightCol = pageW - M;
+      const labelCol = pageW - 72;
       let ty = finalY;
-      doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
-      doc.text("Subtotal:", labelCol, ty, { align: "right" });
-      doc.setTextColor(0);
-      doc.text(`${currSymbol} ${quotation.subtotal.toFixed(2)}`, rightCol, ty, { align: "right" });
-      if (quotation.taxEnabled && quotation.taxAmount != null) {
-        ty += 6; doc.setTextColor(100);
-        doc.text(`${taxLabel} (${quotation.taxRate}%):`, labelCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`${currSymbol} ${quotation.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
-      if (quotation.discountEnabled && quotation.discountAmount != null) {
-        ty += 6; doc.setTextColor(100);
-        doc.text("Discount:", labelCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`- ${currSymbol} ${quotation.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
-      ty += 4;
-      doc.setDrawColor(30, 64, 175);
-      doc.line(labelCol - 20, ty, rightCol, ty);
-      ty += 6;
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 64, 175);
-      doc.text(`Total (${currency}):`, labelCol, ty, { align: "right" });
-      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, rightCol, ty, { align: "right" });
+
+      const totRow = (label: string, value: string) => {
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+        doc.text(label, labelCol, ty, { align: "right" });
+        doc.setTextColor(20);
+        doc.text(value, rightCol, ty, { align: "right" });
+        ty += 9;
+      };
+      totRow("Subtotal:", `${currSymbol} ${quotation.subtotal.toFixed(2)}`);
+      if (quotation.taxEnabled && quotation.taxAmount != null)
+        totRow(`${taxLabel} (${quotation.taxRate}%):`, `${currSymbol} ${quotation.taxAmount.toFixed(2)}`);
+      if (quotation.discountEnabled && quotation.discountAmount != null)
+        totRow("Discount:", `- ${currSymbol} ${quotation.discountAmount.toFixed(2)}`);
+
+      // Total box (filled)
+      ty += 2;
+      doc.setFillColor(30, 64, 175);
+      doc.roundedRect(labelCol - 26, ty - 7, rightCol - labelCol + 44, 16, 2, 2, "F");
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text(`TOTAL (${currency}):`, labelCol, ty + 4, { align: "right" });
+      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, rightCol - 1, ty + 4, { align: "right" });
+      ty += 20;
 
       if (quotation.notes) {
-        ty += 14; doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(0);
-        doc.text("Notes:", 14, ty); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
-        const split = doc.splitTextToSize(quotation.notes, pageW - 28);
-        doc.text(split, 14, ty + 5);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold"); doc.setTextColor(20);
+        doc.text("Notes:", M, ty);
+        ty += 7;
+        doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+        const split = doc.splitTextToSize(quotation.notes, pageW - M * 2);
+        doc.setFontSize(10.5);
+        doc.text(split, M, ty);
       }
-      if (settings?.trn) {
-        const pageH = doc.internal.pageSize.getHeight();
-        doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(150);
-        doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
-      }
+
+      // ── Page footer ────────────────────────────────────────────────────────
+      doc.setDrawColor(210, 220, 240);
+      doc.setLineWidth(0.3);
+      doc.line(M, pageH - 18, pageW - M, pageH - 18);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150);
+      doc.text(settings?.companyName || "", M, pageH - 10);
+      if (settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
+      doc.text("Page 1", pageW - M, pageH - 10, { align: "right" });
 
       return doc;
     }

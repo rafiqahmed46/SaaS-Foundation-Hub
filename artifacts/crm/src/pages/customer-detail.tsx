@@ -282,96 +282,94 @@ export default function CustomerDetailPage() {
     if (!customer) throw new Error("No customer");
     const { jsPDF } = await import("jspdf");
     const autoTable = (await import("jspdf-autotable")).default;
-    const doc = new jsPDF();
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
+    const doc = new jsPDF({ format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();   // 210 mm
+      const pageH = doc.internal.pageSize.getHeight();  // 297 mm
+      const M = 18; // margin
       const brandR = 30, brandG = 64, brandB = 175;
       const today = new Date();
       const todayStr = today.toLocaleDateString("en-GB"); // DD/MM/YYYY UAE format
 
-      // ── Header bar ──────────────────────────────────────────────────────────
-      const barH = 42;
+      // ── Header bar (54 mm) ─────────────────────────────────────────────────
       doc.setFillColor(brandR, brandG, brandB);
-      doc.rect(0, 0, pageW, barH, "F");
+      doc.rect(0, 0, pageW, 54, "F");
 
       // Logo (if available)
-      let logoEndX = 14;
+      let logoEndX = M;
       if (settings?.companyLogo) {
         try {
           const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
-          doc.addImage(settings.companyLogo, fmt, 14, 6, 28, 28);
-          logoEndX = 48;
+          doc.addImage(settings.companyLogo, fmt, M, 7, 30, 30);
+          logoEndX = M + 36;
         } catch { /* skip logo on error */ }
       }
 
       // Company name
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(17);
+      doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
-      doc.text(settings?.companyName || "Your Company", logoEndX, 16);
+      doc.text(settings?.companyName || "Your Company", logoEndX, 22);
 
       // Company sub-details (address, tel, email, website)
-      doc.setFontSize(7.5);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(180, 200, 255);
-      let hY = 23;
+      doc.setTextColor(200, 215, 255);
+      let hY = 32;
       const companyLines: string[] = [];
       if (settings?.address) companyLines.push(settings.address);
       if (settings?.phone)   companyLines.push(`Tel: ${settings.phone}`);
       if (settings?.email)   companyLines.push(settings.email);
       if (settings?.website) companyLines.push(settings.website);
-      companyLines.forEach((line) => { doc.text(line, logoEndX, hY); hY += 4.5; });
+      companyLines.forEach((line) => { doc.text(line, logoEndX, hY); hY += 5.5; });
 
-      // TRN top-right
+      // TRN + title top-right
+      doc.setTextColor(180, 205, 255);
+      doc.setFontSize(10);
       if (settings?.trn) {
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(8.5);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text(`TRN: ${settings.trn}`, pageW - 14, 14, { align: "right" });
+        doc.text(`TRN: ${settings.trn}`, pageW - M, 16, { align: "right" });
       }
-
-      // "SERVICE SCHEDULE" label top-right
-      doc.setFontSize(20);
+      doc.setFontSize(26);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text("SERVICE SCHEDULE", pageW - 14, settings?.trn ? 27 : 20, { align: "right" });
-
-      // Date top-right below title
-      doc.setFontSize(8);
+      doc.text("SERVICE SCHEDULE", pageW - M, settings?.trn ? 30 : 24, { align: "right" });
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(180, 200, 255);
-      doc.text(`Date: ${todayStr}`, pageW - 14, settings?.trn ? 34 : 28, { align: "right" });
+      doc.setTextColor(180, 205, 255);
+      doc.text(`Date: ${todayStr}`, pageW - M, settings?.trn ? 42 : 36, { align: "right" });
 
-      // ── Prepared For / Customer block ────────────────────────────────────────
-      let y = barH + 10;
+      // ── Prepared For / Customer block ───────────────────────────────────────
+      let y = 68;
 
-      // Left: Prepared For
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(100, 100, 120);
-      doc.text("PREPARED FOR:", 14, y);
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(20, 20, 50);
-      doc.text(customer.name, 14, y + 7);
-
+      // Left: customer
       doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(150);
+      doc.text("PREPARED FOR:", M, y);
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20);
+      doc.text(customer.name, M, y + 8);
+
+      doc.setFontSize(10.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(80);
-      let cy2 = y + 14;
-      if (customer.phone)   { doc.text(`Tel: ${customer.phone}`, 14, cy2);    cy2 += 5; }
-      if (customer.email)   { doc.text(`Email: ${customer.email}`, 14, cy2);  cy2 += 5; }
+      let cy2 = y + 17;
+      if (customer.phone)   { doc.text(`Tel: ${customer.phone}`, M, cy2);    cy2 += 6; }
+      if (customer.email)   { doc.text(`Email: ${customer.email}`, M, cy2);  cy2 += 6; }
       if (customer.address) {
-        const addrLines = doc.splitTextToSize(`Address: ${customer.address}`, 90);
-        doc.text(addrLines, 14, cy2);
-        cy2 += addrLines.length * 5;
+        const addrLines = doc.splitTextToSize(`Address: ${customer.address}`, 95);
+        doc.text(addrLines, M, cy2);
+        cy2 += addrLines.length * 6;
       }
 
       // Right: Schedule meta
-      const metaX = pageW - 14;
-      const metaLabelX = pageW - 65;
-      let my = y + 7;
+      const metaX = pageW - M;
+      const metaLabelX = pageW - 70;
+      let my = y + 8;
       const meta: [string, string][] = [
         ["Schedule Date:", todayStr],
         ["Total Tasks:", String(tasks.length)],
@@ -381,30 +379,30 @@ export default function CustomerDetailPage() {
       ];
       meta.forEach(([label, value]) => {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(10.5);
         doc.setTextColor(120);
         doc.text(label, metaLabelX, my, { align: "right" });
         doc.setFont("helvetica", "normal");
         doc.setTextColor(20);
         doc.text(value, metaX, my, { align: "right" });
-        my += 6;
+        my += 7;
       });
 
       // Divider
       y = Math.max(cy2, my) + 6;
       doc.setDrawColor(brandR, brandG, brandB);
       doc.setLineWidth(0.5);
-      doc.line(14, y, pageW - 14, y);
-      y += 6;
+      doc.line(M, y, pageW - M, y);
+      y += 7;
 
       // Section heading
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(brandR, brandG, brandB);
-      doc.text("SERVICE TASK SCHEDULE", 14, y);
-      y += 5;
+      doc.text("SERVICE TASK SCHEDULE", M, y);
+      y += 6;
 
-      // ── Tasks table ──────────────────────────────────────────────────────────
+      // ── Tasks table ─────────────────────────────────────────────────────────
       const tableRows = tasks.map((t, i) => [
         String(i + 1),
         t.title,
@@ -418,27 +416,26 @@ export default function CustomerDetailPage() {
         startY: y,
         head: [["#", "Task / Service", "Description", "Status", "Priority", "Due Date"]],
         body: tableRows,
-        headStyles: { fillColor: [brandR, brandG, brandB], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
-        bodyStyles: { fontSize: 8.5, textColor: 40 },
+        headStyles: { fillColor: [brandR, brandG, brandB], textColor: 255, fontStyle: "bold", fontSize: 10.5 },
+        bodyStyles: { fontSize: 10.5, textColor: 40 },
         alternateRowStyles: { fillColor: [245, 247, 255] },
         columnStyles: {
-          0: { cellWidth: 9, halign: "center" },
+          0: { cellWidth: 10, halign: "center" },
           1: { cellWidth: 42 },
-          2: { cellWidth: 58 },
-          3: { cellWidth: 24, halign: "center" },
+          2: { cellWidth: 56 },
+          3: { cellWidth: 26, halign: "center" },
           4: { cellWidth: 22, halign: "center" },
-          5: { cellWidth: 27, halign: "center" },
+          5: { cellWidth: 26, halign: "center" },
         },
-        margin: { left: 14, right: 14 },
+        margin: { left: M, right: M },
+        styles: { cellPadding: 4 },
         didParseCell: (data) => {
-          // Colour-code status cells
           if (data.section === "body" && data.column.index === 3) {
             const val = data.cell.raw as string;
             if (val === "Done")        { data.cell.styles.textColor = [22, 163, 74];  data.cell.styles.fontStyle = "bold"; }
             if (val === "In Progress") { data.cell.styles.textColor = [37, 99, 235];  data.cell.styles.fontStyle = "bold"; }
             if (val === "To Do")       { data.cell.styles.textColor = [107, 114, 128]; }
           }
-          // Colour-code priority cells
           if (data.section === "body" && data.column.index === 4) {
             const val = data.cell.raw as string;
             if (val === "High")   { data.cell.styles.textColor = [220, 38, 38];  data.cell.styles.fontStyle = "bold"; }
@@ -451,49 +448,46 @@ export default function CustomerDetailPage() {
 
       // ── Summary bar ──────────────────────────────────────────────────────────
       const sumY = finalY + 8;
-      doc.setFillColor(240, 244, 255);
-      doc.roundedRect(14, sumY, pageW - 28, 14, 2, 2, "F");
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(brandR, brandG, brandB);
       const done = tasks.filter((t) => t.status === "done").length;
       const inProg = tasks.filter((t) => t.status === "in-progress").length;
       const todo = tasks.filter((t) => t.status === "todo").length;
+      doc.setFillColor(240, 244, 255);
+      doc.roundedRect(M, sumY, pageW - M * 2, 16, 2, 2, "F");
+      doc.setFontSize(10.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(brandR, brandG, brandB);
       doc.text(
         `Total: ${tasks.length}   ·   Completed: ${done}   ·   In Progress: ${inProg}   ·   Pending: ${todo}`,
-        pageW / 2, sumY + 9, { align: "center" }
+        pageW / 2, sumY + 10, { align: "center" }
       );
 
-      // ── Notes / footer text ──────────────────────────────────────────────────
-      let footY = sumY + 22;
+      // ── Notes ────────────────────────────────────────────────────────────────
+      let footY = sumY + 26;
       if (settings?.invoiceFooter || settings?.paymentTerms) {
-        doc.setFontSize(8);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(80);
-        doc.text("Notes:", 14, footY);
+        doc.text("Notes:", M, footY);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(120);
-        const noteText = [settings.invoiceFooter, settings.paymentTerms].filter(Boolean).join(" | ");
-        const noteLines = doc.splitTextToSize(noteText, pageW - 28);
-        doc.text(noteLines, 14, footY + 5);
-        footY += 5 + noteLines.length * 4.5;
+        const noteText = [settings.invoiceFooter, settings.paymentTerms].filter(Boolean).join("  |  ");
+        const noteLines = doc.splitTextToSize(noteText, pageW - M * 2);
+        doc.setFontSize(10.5);
+        doc.text(noteLines, M, footY + 7);
       }
 
       // ── Page footer ──────────────────────────────────────────────────────────
-      // Bottom rule
       doc.setDrawColor(200, 210, 240);
       doc.setLineWidth(0.3);
-      doc.line(14, pageH - 16, pageW - 14, pageH - 16);
-
-      // Company name left, TRN center, page right
-      doc.setFontSize(7.5);
+      doc.line(M, pageH - 18, pageW - M, pageH - 18);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(150);
-      doc.text(settings?.companyName || "", 14, pageH - 10);
+      doc.text(settings?.companyName || "", M, pageH - 10);
       if (settings?.trn) {
         doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
       }
-      doc.text(`Page 1`, pageW - 14, pageH - 10, { align: "right" });
+      doc.text("Page 1", pageW - M, pageH - 10, { align: "right" });
 
       return doc;
   }

@@ -89,84 +89,92 @@ export default function InvoiceDetailPage() {
     {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
-      const doc = new jsPDF();
+      const doc = new jsPDF({ format: "a4" });
       const currency = invoice?.currency || settings?.currency || "AED";
       const currSymbol = CURRENCIES[currency] || currency;
       const taxLabel = settings?.taxLabel || "VAT";
-      const pageW = doc.internal.pageSize.getWidth();
+      const pageW = doc.internal.pageSize.getWidth();   // 210 mm
+      const pageH = doc.internal.pageSize.getHeight();  // 297 mm
+      const M = 18; // margin
       const theme = PDF_THEMES.find((t) => t.id === pdfThemeId) || PDF_THEMES[0];
       const [pr, pg, pb] = theme.rgb;
 
-      // Header bar
+      // ── Header bar (54 mm) ─────────────────────────────────────────────────
       doc.setFillColor(pr, pg, pb);
-      doc.rect(0, 0, pageW, 38, "F");
+      doc.rect(0, 0, pageW, 54, "F");
 
-      // Company name
-      doc.setFontSize(18);
+      // Company name (left, large)
+      doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", 14, 16);
+      doc.text(settings?.companyName || "Company", M, 22);
 
-      // INVOICE label
-      doc.setFontSize(24);
-      doc.text("INVOICE", pageW - 14, 16, { align: "right" });
+      // "INVOICE" label (right, very large)
+      doc.setFontSize(30);
+      doc.text("INVOICE", pageW - M, 24, { align: "right" });
 
-      // Company info below header bar
-      doc.setFontSize(8.5);
+      // Company sub-details (left, below name)
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 210, 255);
-      let headerY = 25;
-      if (settings?.address) { doc.text(settings.address, 14, headerY); headerY += 4.5; }
-      if (settings?.phone) { doc.text(`Tel: ${settings.phone}`, 14, headerY); headerY += 4.5; }
-      if (settings?.email) { doc.text(settings.email, 14, headerY); }
-      if (settings?.trn) {
-        doc.text(`TRN: ${settings.trn}`, pageW - 14, 25, { align: "right" });
-      }
+      doc.setTextColor(200, 215, 255);
+      let hy = 32;
+      if (settings?.address) { doc.text(settings.address, M, hy); hy += 5.5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, M, hy); hy += 5.5; }
+      if (settings?.email)   { doc.text(settings.email, M, hy); }
 
-      // Invoice meta
-      doc.setTextColor(150, 175, 255);
+      // Invoice meta (right, below title)
+      doc.setTextColor(180, 205, 255);
+      doc.setFontSize(10);
+      if (settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - M, 42, { align: "right" });
+      doc.text(`Date: ${fmtDate(invoice.createdAt)}`, pageW - M, 50, { align: "right" });
+
+      // ── Bill To + Meta block ───────────────────────────────────────────────
+      let y = 68;
+      // "BILL TO" label
       doc.setFontSize(8.5);
-      doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - 14, 31, { align: "right" });
-      doc.text(`Date: ${fmtDate(invoice.createdAt)}`, pageW - 14, 36, { align: "right" });
-
-      // Bill to + invoice details
-      doc.setTextColor(0);
-      let y = 50;
-      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("Bill To:", 14, y);
-      doc.setFont("helvetica", "normal");
-      doc.text(invoice.customerName || "—", 14, y + 5);
+      doc.setTextColor(150);
+      doc.text("BILL TO", M, y);
+      // Customer name
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20);
+      doc.text(invoice.customerName || "—", M, y + 8);
 
-      // Right side meta
+      // Right meta
       const rightMeta: [string, string][] = [
         ["Invoice No:", invoice.invoiceNumber],
         ["Date:", fmtDate(invoice.createdAt)],
       ];
       if (invoice.dueDate) rightMeta.push(["Due Date:", fmtDate(invoice.dueDate)]);
-      if ((invoice as unknown as { poNumber?: string }).poNumber) rightMeta.push(["PO No:", (invoice as unknown as { poNumber: string }).poNumber]);
+      if ((invoice as unknown as { poNumber?: string }).poNumber)
+        rightMeta.push(["PO No:", (invoice as unknown as { poNumber: string }).poNumber]);
       rightMeta.push(["Status:", invoice.status.toUpperCase()]);
 
       let ry = y;
       rightMeta.forEach(([label, value]) => {
+        doc.setFontSize(10.5);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(100);
-        doc.text(label, pageW - 70, ry, { align: "right" });
+        doc.setTextColor(120);
+        doc.text(label, pageW - 74, ry, { align: "right" });
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(0);
-        doc.text(value, pageW - 14, ry, { align: "right" });
-        ry += 6;
+        doc.setTextColor(20);
+        doc.text(value, pageW - M, ry, { align: "right" });
+        ry += 8;
       });
 
-      y += 22;
+      // Divider
+      y = Math.max(y + 22, ry + 4);
       doc.setDrawColor(220);
-      doc.line(14, y, pageW - 14, y);
-      y += 6;
+      doc.setLineWidth(0.4);
+      doc.line(M, y, pageW - M, y);
+      y += 8;
 
-      // Line items table
+      // ── Line items table ───────────────────────────────────────────────────
       autoTable(doc, {
         startY: y,
-        head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Total (${currency})`]],
+        head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Amount (${currency})`]],
         body: invoice.items.map((item, i) => [
           String(i + 1),
           item.description || "—",
@@ -174,93 +182,90 @@ export default function InvoiceDetailPage() {
           `${currSymbol} ${item.unitPrice.toFixed(2)}`,
           `${currSymbol} ${(item.quantity * item.unitPrice).toFixed(2)}`,
         ]),
-        headStyles: { fillColor: [pr, pg, pb], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [pr, pg, pb], textColor: 255, fontStyle: "bold", fontSize: 11, halign: "left" },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-          0: { cellWidth: 10, halign: "center" },
-          2: { cellWidth: 15, halign: "center" },
-          3: { cellWidth: 38, halign: "right" },
-          4: { cellWidth: 38, halign: "right" },
+          0: { cellWidth: 12, halign: "center" },
+          2: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 42, halign: "right" },
+          4: { cellWidth: 42, halign: "right" },
         },
-        margin: { left: 14, right: 14 },
-        styles: { fontSize: 9 },
+        margin: { left: M, right: M },
+        styles: { fontSize: 11, cellPadding: 4.5, textColor: 40 },
       });
 
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
-      const rightCol = pageW - 14;
-      const labelCol = pageW - 65;
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      const rightCol = pageW - M;
+      const labelCol = pageW - 72;
       let ty = finalY;
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100);
-      doc.text("Subtotal:", labelCol, ty, { align: "right" });
-      doc.setTextColor(0);
-      doc.text(`${currSymbol} ${invoice.subtotal.toFixed(2)}`, rightCol, ty, { align: "right" });
-
-      if (invoice.taxEnabled && invoice.taxAmount != null) {
-        ty += 6;
+      // Subtotal / VAT / Discount rows
+      const totRow = (label: string, value: string, bold = false) => {
+        doc.setFontSize(11);
+        doc.setFont("helvetica", bold ? "bold" : "normal");
         doc.setTextColor(100);
-        doc.text(`${taxLabel} (${invoice.taxRate}%):`, labelCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`${currSymbol} ${invoice.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
-      if (invoice.discountEnabled && invoice.discountAmount != null) {
-        ty += 6;
-        doc.setTextColor(100);
-        doc.text("Discount:", labelCol, ty, { align: "right" });
-        doc.setTextColor(0);
-        doc.text(`- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
-      }
+        doc.text(label, labelCol, ty, { align: "right" });
+        doc.setTextColor(20);
+        doc.text(value, rightCol, ty, { align: "right" });
+        ty += 9;
+      };
+      totRow("Subtotal:", `${currSymbol} ${invoice.subtotal.toFixed(2)}`);
+      if (invoice.taxEnabled && invoice.taxAmount != null)
+        totRow(`${taxLabel} (${invoice.taxRate}%):`, `${currSymbol} ${invoice.taxAmount.toFixed(2)}`);
+      if (invoice.discountEnabled && invoice.discountAmount != null)
+        totRow("Discount:", `- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`);
 
-      ty += 4;
-      doc.setDrawColor(pr, pg, pb);
-      doc.line(labelCol - 20, ty, rightCol, ty);
-      ty += 6;
-      doc.setFontSize(11);
+      // Total box (filled)
+      ty += 2;
+      doc.setFillColor(pr, pg, pb);
+      doc.roundedRect(labelCol - 26, ty - 7, rightCol - labelCol + 26 + M - M + 2, 16, 2, 2, "F");
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(pr, pg, pb);
-      doc.text(`Total (${currency}):`, labelCol, ty, { align: "right" });
-      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, rightCol, ty, { align: "right" });
+      doc.setTextColor(255, 255, 255);
+      doc.text(`TOTAL (${currency}):`, labelCol, ty + 4, { align: "right" });
+      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, rightCol - 1, ty + 4, { align: "right" });
+      ty += 20;
 
       // Bank details
       if (settings?.bankName || settings?.bankIban || settings?.bankAccount) {
-        ty += 14;
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(pr, pg, pb);
-        doc.text("Payment Details:", 14, ty);
+        doc.text("Payment Details:", M, ty);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60);
-        ty += 5;
-        if (settings.bankName) { doc.text(`Bank: ${settings.bankName}`, 14, ty); ty += 5; }
-        if (settings.bankAccount) { doc.text(`Account: ${settings.bankAccount}`, 14, ty); ty += 5; }
-        if (settings.bankIban) { doc.text(`IBAN: ${settings.bankIban}`, 14, ty); ty += 5; }
+        ty += 7;
+        if (settings.bankName)    { doc.text(`Bank: ${settings.bankName}`, M, ty);       ty += 7; }
+        if (settings.bankAccount) { doc.text(`Account: ${settings.bankAccount}`, M, ty); ty += 7; }
+        if (settings.bankIban)    { doc.text(`IBAN: ${settings.bankIban}`, M, ty);        ty += 7; }
+        ty += 4;
       }
 
       // Notes
       if (invoice.notes || settings?.invoiceFooter || settings?.paymentTerms) {
-        ty += 6;
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(0);
-        doc.text("Notes:", 14, ty);
+        doc.setTextColor(20);
+        doc.text("Notes:", M, ty);
+        ty += 7;
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100);
-        ty += 5;
-        const noteLines = [invoice.notes, settings?.paymentTerms, settings?.invoiceFooter].filter(Boolean).join(" | ");
-        const split = doc.splitTextToSize(noteLines, pageW - 28);
-        doc.text(split, 14, ty);
+        const noteLines = [invoice.notes, settings?.paymentTerms, settings?.invoiceFooter].filter(Boolean).join("  |  ");
+        const split = doc.splitTextToSize(noteLines, pageW - M * 2);
+        doc.setFontSize(10.5);
+        doc.text(split, M, ty);
       }
 
-      // TRN footer
-      if (settings?.trn) {
-        const pageH = doc.internal.pageSize.getHeight();
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(150);
-        doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
-      }
+      // ── Page footer ────────────────────────────────────────────────────────
+      doc.setDrawColor(210, 220, 240);
+      doc.setLineWidth(0.3);
+      doc.line(M, pageH - 18, pageW - M, pageH - 18);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150);
+      doc.text(settings?.companyName || "", M, pageH - 10);
+      if (settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
+      doc.text("Page 1", pageW - M, pageH - 10, { align: "right" });
 
       return doc;
     }
