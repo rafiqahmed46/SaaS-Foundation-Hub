@@ -133,7 +133,7 @@ export async function addInvoice(data: Omit<Invoice, "id" | "createdAt">) {
 }
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
-  return updateDoc(doc(db, "invoices", id), data);
+  return updateDoc(doc(db, "invoices", id), stripUndefined(data as Record<string, unknown>));
 }
 
 export async function deleteInvoice(id: string) {
@@ -182,7 +182,7 @@ export async function addQuotation(data: Omit<Quotation, "id" | "createdAt">) {
 }
 
 export async function updateQuotation(id: string, data: Partial<Quotation>) {
-  return updateDoc(doc(db, "quotations", id), data);
+  return updateDoc(doc(db, "quotations", id), stripUndefined(data as Record<string, unknown>));
 }
 
 export async function deleteQuotation(id: string) {
