@@ -55,6 +55,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: boolean; email?: boolean }>({});
 
   async function loadCustomers() {
     if (!user?.companyId) return;
@@ -72,12 +73,14 @@ export default function CustomersPage() {
   function openAdd() {
     setEditCustomer(null);
     setForm(emptyForm);
+    setFieldErrors({});
     setDialogOpen(true);
   }
 
   function openEdit(c: Customer) {
     setEditCustomer(c);
     setForm({ name: c.name, email: c.email, phone: c.phone || "", address: c.address || "", notes: c.notes || "" });
+    setFieldErrors({});
     setDialogOpen(true);
   }
 
@@ -86,8 +89,9 @@ export default function CustomersPage() {
       toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
       return;
     }
-    if (!form.name.trim() || !form.email.trim()) {
-      toast({ title: "Validation", description: "Name and email are required.", variant: "destructive" });
+    const errs = { name: !form.name.trim(), email: !form.email.trim() };
+    if (errs.name || errs.email) {
+      setFieldErrors(errs);
       return;
     }
     setSaving(true);
@@ -296,12 +300,28 @@ export default function CustomersPage() {
           </DialogHeader>
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
-              <Label htmlFor="c-name">Name *</Label>
-              <Input id="c-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Jane Smith" data-testid="input-customer-name" />
+              <Label htmlFor="c-name" className={fieldErrors.name ? "text-destructive" : ""}>
+                Name <span className={fieldErrors.name ? "text-destructive font-medium" : "text-muted-foreground font-normal text-xs"}>*</span>
+              </Label>
+              <Input
+                id="c-name" value={form.name} placeholder="Jane Smith"
+                data-testid="input-customer-name"
+                className={fieldErrors.name ? "border-destructive ring-destructive focus-visible:ring-destructive" : ""}
+                onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); if (fieldErrors.name) setFieldErrors((fe) => ({ ...fe, name: false })); }}
+              />
+              {fieldErrors.name && <p className="text-xs text-destructive">Name is required</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-email">Email *</Label>
-              <Input id="c-email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" data-testid="input-customer-email" />
+              <Label htmlFor="c-email" className={fieldErrors.email ? "text-destructive" : ""}>
+                Email <span className={fieldErrors.email ? "text-destructive font-medium" : "text-muted-foreground font-normal text-xs"}>*</span>
+              </Label>
+              <Input
+                id="c-email" type="email" value={form.email} placeholder="jane@example.com"
+                data-testid="input-customer-email"
+                className={fieldErrors.email ? "border-destructive ring-destructive focus-visible:ring-destructive" : ""}
+                onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); if (fieldErrors.email) setFieldErrors((fe) => ({ ...fe, email: false })); }}
+              />
+              {fieldErrors.email && <p className="text-xs text-destructive">Email is required</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-phone">Phone</Label>

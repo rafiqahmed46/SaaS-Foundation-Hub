@@ -30,6 +30,7 @@ export default function QuotationNewPage() {
 
   const [customerId, setCustomerId] = useState("");
   const [status, setStatus] = useState("draft");
+  const [errors, setErrors] = useState<{ customer?: boolean; items?: boolean[] }>({});
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0 }]);
@@ -66,8 +67,12 @@ export default function QuotationNewPage() {
       toast({ title: "Setup incomplete", description: "Your company workspace isn't ready yet. Use the setup banner above.", variant: "destructive" });
       return;
     }
-    if (!customerId) { toast({ title: "Select a customer", variant: "destructive" }); return; }
-    if (items.some((i) => !i.description.trim())) { toast({ title: "Fill in all item descriptions", variant: "destructive" }); return; }
+    const newItemErrors = items.map((i) => !i.description.trim());
+    const hasErrors = !customerId || newItemErrors.some(Boolean);
+    if (hasErrors) {
+      setErrors({ customer: !customerId, items: newItemErrors });
+      return;
+    }
     setSaving(true);
     try {
       const selectedCustomer = customers.find((c) => c.id === customerId);
@@ -120,11 +125,16 @@ export default function QuotationNewPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Customer *</Label>
-                    <Select value={customerId} onValueChange={setCustomerId}>
-                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                    <Label className={errors.customer ? "text-destructive" : ""}>
+                      Customer <span className={errors.customer ? "text-destructive font-medium" : ""}>*</span>
+                    </Label>
+                    <Select value={customerId} onValueChange={(v) => { setCustomerId(v); if (errors.customer) setErrors((e) => ({ ...e, customer: false })); }}>
+                      <SelectTrigger className={errors.customer ? "border-destructive ring-1 ring-destructive" : ""}>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
                       <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
+                    {errors.customer && <p className="text-xs text-destructive">Please select a customer</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Status</Label>
@@ -157,13 +167,28 @@ export default function QuotationNewPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
-                  <span className="col-span-5">Description</span><span className="col-span-2 text-center">Qty</span><span className="col-span-3 text-right">Unit Price</span><span className="col-span-2 text-right">Total</span>
+                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium px-1">
+                  <span className={`col-span-5 ${errors.items?.some(Boolean) ? "text-destructive" : "text-muted-foreground"}`}>
+                    Description{errors.items?.some(Boolean) && " — required"}
+                  </span>
+                  <span className="col-span-2 text-center text-muted-foreground">Qty</span>
+                  <span className="col-span-3 text-right text-muted-foreground">Unit Price</span>
+                  <span className="col-span-2 text-right text-muted-foreground">Total</span>
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <div key={idx} className={`grid grid-cols-12 gap-2 items-center rounded-lg ${errors.items?.[idx] ? "bg-destructive/5 ring-1 ring-destructive/30 p-1" : ""}`}>
                     <div className="col-span-12 sm:col-span-5">
-                      <Input placeholder="Description" value={item.description} onChange={(e) => setItems((p) => p.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))} />
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        className={errors.items?.[idx] ? "border-destructive focus-visible:ring-destructive placeholder:text-destructive/60" : ""}
+                        onChange={(e) => {
+                          setItems((p) => p.map((it, i) => i === idx ? { ...it, description: e.target.value } : it));
+                          if (errors.items?.[idx] && e.target.value.trim()) {
+                            setErrors((er) => ({ ...er, items: er.items?.map((v, i) => i === idx ? false : v) }));
+                          }
+                        }}
+                      />
                     </div>
                     <div className="col-span-4 sm:col-span-2">
                       <Input type="number" min={0.01} step="0.01" value={item.quantity} onChange={(e) => setItems((p) => p.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 0 } : it))} />
