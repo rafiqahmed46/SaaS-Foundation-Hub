@@ -175,16 +175,17 @@ export default function QuotationDetailPage() {
       doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - M, 50, { align: "right" });
 
       // ── Prepared For + Meta block ──────────────────────────────────────────
+      const halfW = (pageW - M * 2) / 2 - 8;
       let y = 68;
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(150);
+      doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.setTextColor(150);
       doc.text("PREPARED FOR", M, y);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(20);
-      doc.text(quotation.customerName || "—", M, y + 8);
+      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(20);
+      const custLine = doc.splitTextToSize(quotation.customerName || "—", halfW);
+      doc.text(custLine[0], M, y + 8);
 
+      // Right meta — label at pageW-M-56 (right-aligned), value at pageW-M (right-aligned)
+      const metaLblX = pageW - M - 56;
+      const metaValX = pageW - M;
       const metaRight: [string, string][] = [
         ["Quote No:", quotation.quoteNumber],
         ["Date:", fmtDate(quotation.createdAt)],
@@ -193,20 +194,19 @@ export default function QuotationDetailPage() {
       metaRight.push(["Status:", quotation.status.toUpperCase()]);
       let ry = y;
       metaRight.forEach(([label, value]) => {
-        doc.setFontSize(10.5);
-        doc.setFont("helvetica", "bold"); doc.setTextColor(120);
-        doc.text(label, pageW - 74, ry, { align: "right" });
+        doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(120);
+        doc.text(label, metaLblX, ry, { align: "right" });
         doc.setFont("helvetica", "normal"); doc.setTextColor(20);
-        doc.text(value, pageW - M, ry, { align: "right" });
+        doc.text(value, metaValX, ry, { align: "right" });
         ry += 8;
       });
 
       y = Math.max(y + 22, ry + 4);
-      doc.setDrawColor(220);
-      doc.setLineWidth(0.4);
+      doc.setDrawColor(220); doc.setLineWidth(0.4);
       doc.line(M, y, pageW - M, y);
       y += 8;
 
+      // Widths: 10 + 72 + 16 + 38 + 38 = 174 mm  (= usable A4 width) ✓
       autoTable(doc, {
         startY: y,
         head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Amount (${currency})`]],
@@ -217,30 +217,30 @@ export default function QuotationDetailPage() {
           `${currSymbol} ${item.unitPrice.toFixed(2)}`,
           `${currSymbol} ${(item.quantity * item.unitPrice).toFixed(2)}`,
         ]),
-        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 11 },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 10 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: {
-          0: { cellWidth: 12, halign: "center" },
-          2: { cellWidth: 20, halign: "center" },
-          3: { cellWidth: 42, halign: "right" },
-          4: { cellWidth: 42, halign: "right" },
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 72, overflow: "linebreak" },
+          2: { cellWidth: 16, halign: "center" },
+          3: { cellWidth: 38, halign: "right" },
+          4: { cellWidth: 38, halign: "right" },
         },
         margin: { left: M, right: M },
-        styles: { fontSize: 11, cellPadding: 4.5, textColor: 40 },
+        styles: { fontSize: 10, cellPadding: 4, overflow: "linebreak", textColor: 40, lineColor: [230, 230, 230], lineWidth: 0.1 },
       });
 
       const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-      const rightCol = pageW - M;
-      const labelCol = pageW - 72;
+      const totLblX = pageW - M - 56;
+      const totValX = pageW - M;
       let ty = finalY;
 
       const totRow = (label: string, value: string) => {
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal"); doc.setTextColor(100);
-        doc.text(label, labelCol, ty, { align: "right" });
+        doc.setFontSize(10.5); doc.setFont("helvetica", "normal"); doc.setTextColor(110);
+        doc.text(label, totLblX, ty, { align: "right" });
         doc.setTextColor(20);
-        doc.text(value, rightCol, ty, { align: "right" });
-        ty += 9;
+        doc.text(value, totValX, ty, { align: "right" });
+        ty += 8;
       };
       totRow("Subtotal:", `${currSymbol} ${quotation.subtotal.toFixed(2)}`);
       if (quotation.taxEnabled && quotation.taxAmount != null)
@@ -251,12 +251,10 @@ export default function QuotationDetailPage() {
       // Full-width TOTAL row
       ty += 3;
       doc.setFillColor(30, 64, 175);
-      doc.rect(M, ty - 6, pageW - M * 2, 18, "F");
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      doc.text(`TOTAL (${currency})`, M + 5, ty + 6);
-      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, pageW - M - 4, ty + 6, { align: "right" });
+      doc.rect(M, ty, pageW - M * 2, 16, "F");
+      doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
+      doc.text(`TOTAL  ${currency}`, M + 5, ty + 10.5);
+      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, pageW - M - 4, ty + 10.5, { align: "right" });
       ty += 24;
 
       if (quotation.notes) {
