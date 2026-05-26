@@ -99,16 +99,19 @@ export default function InvoiceDetailPage() {
       const theme = PDF_THEMES.find((t) => t.id === pdfThemeId) || PDF_THEMES[0];
       const [pr, pg, pb] = theme.rgb;
 
-      // ── Header bar (54 mm) ─────────────────────────────────────────────────
+      // ── Header — accent line top + divider bottom ─────────────────────────
       doc.setFillColor(pr, pg, pb);
-      doc.rect(0, 0, pageW, 54, "F");
+      doc.rect(0, 0, pageW, 3, "F");                        // thick top accent strip
+      doc.setDrawColor(pr, pg, pb);
+      doc.setLineWidth(0.4);
+      doc.line(0, 56, pageW, 56);                           // thin bottom divider
 
-      // Logo (left side of header bar)
+      // Logo (left, below accent strip)
       let logoEndX = M;
       if (settings?.companyLogo) {
         try {
           const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
-          doc.addImage(settings.companyLogo, fmt, M, 8, 28, 28);
+          doc.addImage(settings.companyLogo, fmt, M, 7, 28, 28);
           logoEndX = M + 33;
         } catch { /* skip logo on error */ }
       }
@@ -116,7 +119,7 @@ export default function InvoiceDetailPage() {
       // Company name (left, large)
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(pr, pg, pb);
       doc.text(settings?.companyName || "Company", logoEndX, 22);
 
       // "INVOICE" label (right, very large)
@@ -124,17 +127,17 @@ export default function InvoiceDetailPage() {
       doc.text("INVOICE", pageW - M, 24, { align: "right" });
 
       // Company sub-details (left, below name)
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 215, 255);
+      doc.setTextColor(90, 90, 90);
       let hy = 32;
-      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5.5; }
-      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5.5; }
+      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5; }
       if (settings?.email)   { doc.text(settings.email, logoEndX, hy); }
 
       // Invoice meta (right, below title)
-      doc.setTextColor(180, 205, 255);
-      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(9.5);
       if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
       doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - M, 42, { align: "right" });
       doc.text(`Date: ${fmtDate(invoice.createdAt)}`, pageW - M, 50, { align: "right" });
@@ -339,38 +342,41 @@ export default function InvoiceDetailPage() {
       const theme2 = PDF_THEMES.find((t) => t.id === pdfThemeId) || PDF_THEMES[0];
       const [rpr, rpg, rpb] = theme2.rgb;
 
-      // ── Letterhead header bar (40 mm) ──────────────────────────────────────
+      // ── Receipt header — accent line top + divider bottom ─────────────────
       doc.setFillColor(rpr, rpg, rpb);
-      doc.rect(0, 0, pageW, 40, "F");
+      doc.rect(0, 0, pageW, 2.5, "F");                     // thick top accent strip
+      doc.setDrawColor(rpr, rpg, rpb);
+      doc.setLineWidth(0.35);
+      doc.line(0, 43, pageW, 43);                           // thin bottom divider
 
-      // Logo (left side of receipt header)
+      // Logo (left, below accent strip)
       let rcLogoEndX = RM;
       if (settings?.companyLogo) {
         try {
           const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
-          doc.addImage(settings.companyLogo, fmt, RM, 6, 22, 22);
-          rcLogoEndX = RM + 26;
+          doc.addImage(settings.companyLogo, fmt, RM, 5, 20, 20);
+          rcLogoEndX = RM + 24;
         } catch { /* skip logo on error */ }
       }
 
       // Company name — left
-      doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
-      doc.text(settings?.companyName || "Company", rcLogoEndX, 16);
+      doc.setFontSize(15); doc.setFont("helvetica", "bold"); doc.setTextColor(rpr, rpg, rpb);
+      doc.text(settings?.companyName || "Company", rcLogoEndX, 15);
 
       // "RECEIPT VOUCHER" — right
-      doc.setFontSize(18);
-      doc.text("RECEIPT VOUCHER", pageW - RM, 17, { align: "right" });
+      doc.setFontSize(17);
+      doc.text("RECEIPT VOUCHER", pageW - RM, 16, { align: "right" });
 
       // Company sub-details — left
-      doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 215, 255);
-      let rhy = 24;
-      if (settings?.address) { doc.text(settings.address, rcLogoEndX, rhy); rhy += 5; }
+      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(90, 90, 90);
+      let rhy = 23;
+      if (settings?.address) { doc.text(settings.address, rcLogoEndX, rhy); rhy += 4.5; }
       if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, rcLogoEndX, rhy); }
 
       // Invoice # / Date / TRN — right
-      doc.setTextColor(180, 205, 255); doc.setFontSize(8);
-      if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - RM, 25, { align: "right" }); }
-      doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - RM, 32, { align: "right" });
+      doc.setTextColor(80, 80, 80); doc.setFontSize(7.5);
+      if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - RM, 24, { align: "right" }); }
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, pageW - RM, 31, { align: "right" });
       doc.text(`Date: ${fmtDate(new Date().toISOString())}`, pageW - RM, 38, { align: "right" });
 
       // ── Bill To block ──────────────────────────────────────────────────────

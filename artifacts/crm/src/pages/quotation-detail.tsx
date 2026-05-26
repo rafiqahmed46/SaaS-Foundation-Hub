@@ -144,16 +144,19 @@ export default function QuotationDetailPage() {
       const pageH = doc.internal.pageSize.getHeight();  // 297 mm
       const M = 18; // margin
 
-      // ── Header bar (54 mm) ─────────────────────────────────────────────────
+      // ── Header — accent line top + divider bottom ─────────────────────────
       doc.setFillColor(30, 64, 175);
-      doc.rect(0, 0, pageW, 54, "F");
+      doc.rect(0, 0, pageW, 3, "F");                        // thick top accent strip
+      doc.setDrawColor(30, 64, 175);
+      doc.setLineWidth(0.4);
+      doc.line(0, 56, pageW, 56);                           // thin bottom divider
 
-      // Logo (left side of header bar)
+      // Logo (left, below accent strip)
       let logoEndX = M;
       if (settings?.companyLogo) {
         try {
           const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
-          doc.addImage(settings.companyLogo, fmt, M, 8, 28, 28);
+          doc.addImage(settings.companyLogo, fmt, M, 7, 28, 28);
           logoEndX = M + 33;
         } catch { /* skip logo on error */ }
       }
@@ -161,7 +164,7 @@ export default function QuotationDetailPage() {
       // Company name (left)
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(30, 64, 175);
       doc.text(settings?.companyName || "Company", logoEndX, 22);
 
       // "QUOTATION" label (right)
@@ -169,17 +172,17 @@ export default function QuotationDetailPage() {
       doc.text("QUOTATION", pageW - M, 24, { align: "right" });
 
       // Company sub-details
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 215, 255);
+      doc.setTextColor(90, 90, 90);
       let hy = 32;
-      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5.5; }
-      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5.5; }
+      if (settings?.address) { doc.text(settings.address, logoEndX, hy); hy += 5; }
+      if (settings?.phone)   { doc.text(`Tel: ${settings.phone}`, logoEndX, hy); hy += 5; }
       if (settings?.email)   { doc.text(settings.email, logoEndX, hy); }
 
       // Quote meta (right)
-      doc.setTextColor(180, 205, 255);
-      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(9.5);
       if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
       doc.text(`Quote #: ${quotation.quoteNumber}`, pageW - M, 42, { align: "right" });
       doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - M, 50, { align: "right" });
