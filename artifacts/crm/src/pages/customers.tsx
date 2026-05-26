@@ -105,8 +105,14 @@ export default function CustomersPage() {
       }
       setDialogOpen(false);
       loadCustomers();
-    } catch {
-      toast({ title: "Error", description: "Could not save customer.", variant: "destructive" });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      const msg = (err as { message?: string })?.message;
+      if (code === "permission-denied") {
+        toast({ title: "Permission denied", description: "Firestore rules are blocking writes. Fix your rules in Firebase Console and click Retry in the banner.", variant: "destructive" });
+      } else {
+        toast({ title: "Could not save customer", description: msg || "An unexpected error occurred.", variant: "destructive" });
+      }
     } finally {
       setSaving(false);
     }
@@ -303,8 +309,8 @@ export default function CustomersPage() {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-notes">Notes</Label>
-              <Textarea id="c-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." rows={3} data-testid="input-customer-notes" />
+              <Label htmlFor="c-notes">Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Textarea id="c-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Any additional notes about this customer..." rows={3} data-testid="input-customer-notes" />
             </div>
           </div>
           <DialogFooter className="gap-2">
