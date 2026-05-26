@@ -12,10 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/utils-crm";
 
 interface LineItem { description: string; quantity: number; unitPrice: number; }
-
-const CURRENCIES: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$", AUD: "A$", INR: "₹", BRL: "R$" };
 
 export default function QuotationNewPage() {
   const { user } = useAuth();
@@ -55,7 +54,7 @@ export default function QuotationNewPage() {
   const afterTax = subtotal + taxAmount;
   const discountAmount = discountEnabled ? (discountType === "percent" ? (afterTax * discountValue) / 100 : discountValue) : 0;
   const total = Math.max(0, afterTax - discountAmount);
-  const currSymbol = CURRENCIES[settings?.currency || "USD"] || "$";
+  const currSymbol = getCurrencySymbol(settings?.currency || "AED");
 
   async function handleSave() {
     if (!user?.companyId) {

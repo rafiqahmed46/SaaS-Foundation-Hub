@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import Layout from "@/components/Layout";
-import { getQuotation, getSettings, updateQuotation, Quotation, Settings } from "@/lib/firestore";
+import { getQuotation, getSettings, updateQuotation, addInvoice, getNextInvoiceNumber, Quotation, Settings } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, FileCheck } from "lucide-react";
+import { ArrowLeft, Download, Building2, FileCheck, ArrowRightLeft } from "lucide-react";
+import { CURRENCIES, getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -18,8 +29,6 @@ const STATUS_STYLES: Record<string, string> = {
   declined: "bg-red-100 text-red-700",
   expired: "bg-amber-100 text-amber-700",
 };
-
-const CURRENCIES: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$", AUD: "A$", INR: "₹", BRL: "R$" };
 
 export default function QuotationDetailPage() {
   const [, params] = useRoute("/quotations/:id");
@@ -32,14 +41,22 @@ export default function QuotationDetailPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (!id || !user?.companyId) return;
+    if (!id) return;
     async function load() {
-      const [q, s] = await Promise.all([getQuotation(id!), getSettings(user!.companyId!)]);
-      setQuotation(q);
-      setSettings(s);
-      setLoading(false);
+      try {
+        const [q, s] = await Promise.all([
+          getQuotation(id!),
+          user?.companyId ? getSettings(user.companyId) : Promise.resolve(null),
+        ]);
+        setQuotation(q);
+        setSettings(s);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [id, user?.companyId]);
@@ -58,77 +75,182 @@ export default function QuotationDetailPage() {
     }
   }
 
+  async function handleConvertToInvoice() {
+    if (!quotation || !user?.companyId) {
+      toast({ title: "Setup incomplete", description: "Company workspace not ready.", variant: "destructive" });
+      return;
+    }
+    setConverting(true);
+    try {
+      const invoiceNumber = await getNextInvoiceNumber(
+        user.companyId,
+        settings?.invoicePrefix || "INV-"
+      );
+
+      const invoiceRef = await addInvoice({
+        companyId: user.companyId,
+        customerId: quotation.customerId,
+        customerName: quotation.customerName,
+        invoiceNumber,
+        status: "draft",
+        items: quotation.items,
+        subtotal: quotation.subtotal,
+        taxEnabled: quotation.taxEnabled,
+        taxRate: quotation.taxRate,
+        taxAmount: quotation.taxAmount,
+        discountEnabled: quotation.discountEnabled,
+        discountType: quotation.discountType,
+        discountValue: quotation.discountValue,
+        discountAmount: quotation.discountAmount,
+        total: quotation.total,
+        notes: quotation.notes,
+      });
+
+      // Mark quotation as accepted
+      await updateQuotation(id!, { status: "accepted" });
+      setQuotation((prev) => prev ? { ...prev, status: "accepted" } : prev);
+
+      toast({
+        title: "Invoice created!",
+        description: `${invoiceNumber} created from ${quotation.quoteNumber}. Quotation marked as accepted.`,
+      });
+
+      // Navigate to the new invoice
+      navigate(`/invoices/${invoiceRef.id}`);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied") {
+        toast({ title: "Permission denied", description: "Fix Firestore rules in Firebase Console.", variant: "destructive" });
+      } else {
+        toast({ title: "Could not convert", description: "An error occurred. Please try again.", variant: "destructive" });
+      }
+    } finally {
+      setConverting(false);
+      setConfirmOpen(false);
+    }
+  }
+
   async function handleDownloadPDF() {
-    if (!quotation || !settings) return;
+    if (!quotation) return;
     try {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
-      const currSymbol = CURRENCIES[settings.currency] || "$";
+      const currency = settings?.currency || "AED";
+      const currSymbol = getCurrencySymbol(currency);
+      const taxLabel = settings?.taxLabel || "VAT";
+      const pageW = doc.internal.pageSize.getWidth();
 
-      doc.setFontSize(22);
-      doc.setFont("helvetica", "bold");
-      doc.text(settings.companyName || "Company", 14, 22);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100);
-      let y = 30;
-      if (settings.address) { doc.text(settings.address, 14, y); y += 5; }
-      if (settings.phone) { doc.text(`Phone: ${settings.phone}`, 14, y); y += 5; }
-      if (settings.email) { doc.text(`Email: ${settings.email}`, 14, y); y += 5; }
+      // Header bar
+      doc.setFillColor(30, 64, 175);
+      doc.rect(0, 0, pageW, 38, "F");
 
-      doc.setTextColor(0);
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("QUOTATION", 196, 22, { align: "right" });
-      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(settings?.companyName || "Company", 14, 16);
+      doc.setFontSize(22);
+      doc.text("QUOTATION", pageW - 14, 16, { align: "right" });
+
+      doc.setFontSize(8.5);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(100);
-      doc.text(`Quote #: ${quotation.quoteNumber}`, 196, 30, { align: "right" });
-      doc.text(`Date: ${new Date(quotation.createdAt).toLocaleDateString()}`, 196, 36, { align: "right" });
-      if (quotation.validUntil) doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString()}`, 196, 42, { align: "right" });
-      doc.text(`Status: ${quotation.status.toUpperCase()}`, 196, 48, { align: "right" });
+      doc.setTextColor(200, 210, 255);
+      let hy = 25;
+      if (settings?.address) { doc.text(settings.address, 14, hy); hy += 4.5; }
+      if (settings?.phone) { doc.text(`Tel: ${settings.phone}`, 14, hy); }
+      if (settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW - 14, 25, { align: "right" });
+      doc.text(`Quote #: ${quotation.quoteNumber}`, pageW - 14, 31, { align: "right" });
+      doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - 14, 36, { align: "right" });
 
       doc.setTextColor(0);
-      y = Math.max(y + 10, 60);
-      doc.setFontSize(11);
+      let y = 50;
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Prepared For:", 14, y);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(quotation.customerName, 14, y + 6);
+      doc.text(quotation.customerName || "—", 14, y + 5);
 
-      y += 20;
-      autoTable(doc, {
-        startY: y,
-        head: [["Description", "Qty", "Unit Price", "Total"]],
-        body: quotation.items.map((item) => [item.description, item.quantity.toString(), `${currSymbol}${item.unitPrice.toFixed(2)}`, `${currSymbol}${(item.quantity * item.unitPrice).toFixed(2)}`]),
-        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: { 1: { cellWidth: 20, halign: "center" }, 2: { cellWidth: 35, halign: "right" }, 3: { cellWidth: 35, halign: "right" } },
-        margin: { left: 14, right: 14 },
+      const metaRight: [string, string][] = [
+        ["Quote No:", quotation.quoteNumber],
+        ["Date:", fmtDate(quotation.createdAt)],
+      ];
+      if (quotation.validUntil) metaRight.push(["Valid Until:", fmtDate(quotation.validUntil)]);
+      metaRight.push(["Status:", quotation.status.toUpperCase()]);
+      let ry = y;
+      metaRight.forEach(([label, value]) => {
+        doc.setFont("helvetica", "bold"); doc.setTextColor(100);
+        doc.text(label, pageW - 70, ry, { align: "right" });
+        doc.setFont("helvetica", "normal"); doc.setTextColor(0);
+        doc.text(value, pageW - 14, ry, { align: "right" });
+        ry += 6;
       });
 
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-      const rightCol = 196, leftCol = 130;
+      y += 22;
+      doc.setDrawColor(220);
+      doc.line(14, y, pageW - 14, y);
+      y += 6;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["#", "Description", "Qty", `Unit Price (${currency})`, `Total (${currency})`]],
+        body: quotation.items.map((item, i) => [
+          String(i + 1),
+          item.description || "—",
+          item.quantity.toString(),
+          `${currSymbol} ${item.unitPrice.toFixed(2)}`,
+          `${currSymbol} ${(item.quantity * item.unitPrice).toFixed(2)}`,
+        ]),
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center" },
+          2: { cellWidth: 15, halign: "center" },
+          3: { cellWidth: 38, halign: "right" },
+          4: { cellWidth: 38, halign: "right" },
+        },
+        margin: { left: 14, right: 14 },
+        styles: { fontSize: 9 },
+      });
+
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+      const rightCol = pageW - 14;
+      const labelCol = pageW - 65;
       let ty = finalY;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100);
-      doc.text("Subtotal:", leftCol, ty, { align: "right" });
+      doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+      doc.text("Subtotal:", labelCol, ty, { align: "right" });
       doc.setTextColor(0);
-      doc.text(`${currSymbol}${quotation.subtotal.toFixed(2)}`, rightCol, ty, { align: "right" });
-      if (quotation.taxEnabled && quotation.taxAmount) { ty += 6; doc.setTextColor(100); doc.text(`Tax (${quotation.taxRate}%):`, leftCol, ty, { align: "right" }); doc.setTextColor(0); doc.text(`${currSymbol}${quotation.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" }); }
-      if (quotation.discountEnabled && quotation.discountAmount) { ty += 6; doc.setTextColor(100); doc.text("Discount:", leftCol, ty, { align: "right" }); doc.setTextColor(0); doc.text(`-${currSymbol}${quotation.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" }); }
-      ty += 8;
+      doc.text(`${currSymbol} ${quotation.subtotal.toFixed(2)}`, rightCol, ty, { align: "right" });
+      if (quotation.taxEnabled && quotation.taxAmount != null) {
+        ty += 6; doc.setTextColor(100);
+        doc.text(`${taxLabel} (${quotation.taxRate}%):`, labelCol, ty, { align: "right" });
+        doc.setTextColor(0);
+        doc.text(`${currSymbol} ${quotation.taxAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
+      }
+      if (quotation.discountEnabled && quotation.discountAmount != null) {
+        ty += 6; doc.setTextColor(100);
+        doc.text("Discount:", labelCol, ty, { align: "right" });
+        doc.setTextColor(0);
+        doc.text(`- ${currSymbol} ${quotation.discountAmount.toFixed(2)}`, rightCol, ty, { align: "right" });
+      }
+      ty += 4;
       doc.setDrawColor(30, 64, 175);
-      doc.line(leftCol - 10, ty - 3, rightCol, ty - 3);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 64, 175);
-      doc.text("Total:", leftCol, ty + 4, { align: "right" });
-      doc.text(`${currSymbol}${quotation.total.toFixed(2)}`, rightCol, ty + 4, { align: "right" });
-      if (quotation.notes) { ty += 20; doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(0); doc.text("Notes:", 14, ty); doc.setFont("helvetica", "normal"); doc.setTextColor(100); doc.text(quotation.notes, 14, ty + 6, { maxWidth: 180 }); }
+      doc.line(labelCol - 20, ty, rightCol, ty);
+      ty += 6;
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 64, 175);
+      doc.text(`Total (${currency}):`, labelCol, ty, { align: "right" });
+      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, rightCol, ty, { align: "right" });
+
+      if (quotation.notes) {
+        ty += 14; doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(0);
+        doc.text("Notes:", 14, ty); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+        const split = doc.splitTextToSize(quotation.notes, pageW - 28);
+        doc.text(split, 14, ty + 5);
+      }
+      if (settings?.trn) {
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(150);
+        doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
+      }
 
       doc.save(`${quotation.quoteNumber}.pdf`);
       toast({ title: "PDF downloaded" });
@@ -138,23 +260,43 @@ export default function QuotationDetailPage() {
     }
   }
 
-  const currSymbol = CURRENCIES[settings?.currency || "USD"] || "$";
+  const currency = settings?.currency || "AED";
+  const currSymbol = getCurrencySymbol(currency);
+  const taxLabel = settings?.taxLabel || "VAT";
 
-  if (loading) return <Layout><div className="p-6 max-w-4xl mx-auto space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div></Layout>;
-  if (!quotation) return <Layout><div className="p-6 text-center"><p className="text-muted-foreground">Quotation not found.</p><Button variant="link" onClick={() => navigate("/quotations")}>Back</Button></div></Layout>;
+  if (loading) return (
+    <Layout>
+      <div className="p-6 max-w-4xl mx-auto space-y-4">
+        <Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" />
+      </div>
+    </Layout>
+  );
+
+  if (!quotation) return (
+    <Layout>
+      <div className="p-6 text-center">
+        <p className="text-muted-foreground">Quotation not found.</p>
+        <Button variant="link" onClick={() => navigate("/quotations")}>Back</Button>
+      </div>
+    </Layout>
+  );
+
+  const alreadyConverted = quotation.status === "accepted";
 
   return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/quotations")} className="p-2 rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+            <button onClick={() => navigate("/quotations")} className="p-2 rounded-lg hover:bg-muted transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div>
               <h1 className="text-2xl font-bold font-mono tracking-tight">{quotation.quoteNumber}</h1>
-              <p className="text-sm text-muted-foreground">Created {new Date(quotation.createdAt).toLocaleDateString()}</p>
+              <p className="text-sm text-muted-foreground">Created {fmtDate(quotation.createdAt)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={quotation.status} onValueChange={handleStatusChange} disabled={updatingStatus}>
               <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -165,21 +307,42 @@ export default function QuotationDetailPage() {
                 <SelectItem value="expired">Expired</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handleDownloadPDF} className="gap-2"><Download className="w-4 h-4" />Download PDF</Button>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(true)}
+              disabled={converting}
+              className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+              data-testid="button-convert-to-invoice"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              {alreadyConverted ? "Convert Again" : "Convert to Invoice"}
+            </Button>
+            <Button onClick={handleDownloadPDF} className="gap-2" data-testid="button-download-pdf">
+              <Download className="w-4 h-4" />
+              Download PDF
+            </Button>
           </div>
         </div>
 
         <Card>
           <CardContent className="p-6 sm:p-8">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between gap-6 mb-8">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"><Building2 className="w-4 h-4 text-white" /></div>
+                  {settings?.companyLogo ? (
+                    <img src={settings.companyLogo} alt="logo" className="h-10 object-contain" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                      <Building2 className="w-5 h-5 text-white" />
+                    </div>
+                  )}
                   <span className="font-bold text-lg">{settings?.companyName || "Your Company"}</span>
                 </div>
                 {settings?.address && <p className="text-sm text-muted-foreground">{settings.address}</p>}
                 {settings?.phone && <p className="text-sm text-muted-foreground">{settings.phone}</p>}
                 {settings?.email && <p className="text-sm text-muted-foreground">{settings.email}</p>}
+                {settings?.trn && <p className="text-sm text-muted-foreground font-medium">TRN: {settings.trn}</p>}
               </div>
               <div className="text-right">
                 <div className="flex items-center justify-end gap-2 mb-1">
@@ -187,61 +350,118 @@ export default function QuotationDetailPage() {
                   <p className="text-3xl font-bold text-primary">QUOTATION</p>
                 </div>
                 <p className="text-sm font-mono font-semibold">{quotation.quoteNumber}</p>
-                <p className="text-sm text-muted-foreground mt-1">Issued: {new Date(quotation.createdAt).toLocaleDateString()}</p>
-                {quotation.validUntil && <p className="text-sm text-muted-foreground">Valid Until: {new Date(quotation.validUntil).toLocaleDateString()}</p>}
-                <span className={`inline-flex mt-2 items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[quotation.status]}`}>{quotation.status}</span>
+                <p className="text-sm text-muted-foreground mt-1">Issued: {fmtDate(quotation.createdAt)}</p>
+                {quotation.validUntil && <p className="text-sm text-muted-foreground">Valid Until: {fmtDate(quotation.validUntil)}</p>}
+                <span className={`inline-flex mt-2 items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[quotation.status]}`}>
+                  {quotation.status}
+                </span>
               </div>
             </div>
 
+            {/* Bill To */}
             <div className="mb-6">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Prepared For</p>
-              <p className="font-semibold">{quotation.customerName}</p>
+              <p className="font-semibold">{quotation.customerName || "—"}</p>
             </div>
 
             <Separator className="mb-6" />
 
+            {/* Line Items */}
             <div className="mb-6">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left pb-3 font-semibold text-muted-foreground">Description</th>
                     <th className="text-center pb-3 font-semibold text-muted-foreground w-16">Qty</th>
-                    <th className="text-right pb-3 font-semibold text-muted-foreground w-24">Unit Price</th>
-                    <th className="text-right pb-3 font-semibold text-muted-foreground w-24">Total</th>
+                    <th className="text-right pb-3 font-semibold text-muted-foreground w-28">Unit Price</th>
+                    <th className="text-right pb-3 font-semibold text-muted-foreground w-28">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {quotation.items.map((item, i) => (
                     <tr key={i}>
-                      <td className="py-3">{item.description}</td>
+                      <td className="py-3">{item.description || "—"}</td>
                       <td className="py-3 text-center text-muted-foreground">{item.quantity}</td>
-                      <td className="py-3 text-right text-muted-foreground">{currSymbol}{item.unitPrice.toFixed(2)}</td>
-                      <td className="py-3 text-right font-medium">{currSymbol}{(item.quantity * item.unitPrice).toFixed(2)}</td>
+                      <td className="py-3 text-right text-muted-foreground">{currSymbol} {item.unitPrice.toFixed(2)}</td>
+                      <td className="py-3 text-right font-medium">{currSymbol} {(item.quantity * item.unitPrice).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
+            {/* Totals */}
             <div className="flex justify-end">
-              <div className="w-64 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{currSymbol}{quotation.subtotal.toFixed(2)}</span></div>
-                {quotation.taxEnabled && quotation.taxAmount != null && <div className="flex justify-between"><span className="text-muted-foreground">Tax ({quotation.taxRate}%)</span><span>{currSymbol}{quotation.taxAmount.toFixed(2)}</span></div>}
-                {quotation.discountEnabled && quotation.discountAmount != null && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{currSymbol}{quotation.discountAmount.toFixed(2)}</span></div>}
+              <div className="w-72 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal ({currency})</span><span>{currSymbol} {quotation.subtotal.toFixed(2)}</span></div>
+                {quotation.taxEnabled && quotation.taxAmount != null && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">{taxLabel} ({quotation.taxRate}%)</span><span>{currSymbol} {quotation.taxAmount.toFixed(2)}</span></div>
+                )}
+                {quotation.discountEnabled && quotation.discountAmount != null && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>- {currSymbol} {quotation.discountAmount.toFixed(2)}</span></div>
+                )}
                 <Separator />
-                <div className="flex justify-between font-bold text-base"><span>Total</span><span className="text-primary">{currSymbol}{quotation.total.toFixed(2)}</span></div>
+                <div className="flex justify-between font-bold text-base">
+                  <span>Total ({currency})</span>
+                  <span className="text-primary">{currSymbol} {quotation.total.toFixed(2)}</span>
+                </div>
               </div>
             </div>
 
+            {/* Notes */}
             {quotation.notes && (
               <div className="mt-8 pt-6 border-t">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
                 <p className="text-sm text-muted-foreground">{quotation.notes}</p>
               </div>
             )}
+
+            {/* Convert to Invoice CTA */}
+            <div className="mt-6 pt-6 border-t flex items-center gap-3 bg-green-50 rounded-xl px-4 py-3">
+              <ArrowRightLeft className="w-5 h-5 shrink-0 text-green-600" />
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-green-800">Convert to Invoice</p>
+                <p className="text-xs text-green-600">
+                  {alreadyConverted
+                    ? "This quotation was already accepted. You can still create another invoice from it."
+                    : "One click converts this quotation into a draft invoice, copies all items and totals, and marks this quote as accepted."}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setConfirmOpen(true)}
+                disabled={converting}
+                className="bg-green-600 hover:bg-green-700 text-white gap-1.5 shrink-0"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                {converting ? "Converting…" : "Convert"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Confirm Dialog */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert to Invoice?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a new <strong>draft invoice</strong> with all the items, tax, and discount from{" "}
+              <strong>{quotation.quoteNumber}</strong>, and mark the quotation as <strong>Accepted</strong>.
+              {quotation.customerName && (
+                <span> The invoice will be billed to <strong>{quotation.customerName}</strong>.</span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={converting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConvertToInvoice} disabled={converting} className="bg-green-600 hover:bg-green-700">
+              {converting ? "Converting…" : "Yes, Convert to Invoice"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
