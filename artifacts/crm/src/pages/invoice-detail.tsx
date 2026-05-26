@@ -215,16 +215,16 @@ export default function InvoiceDetailPage() {
       if (invoice.discountEnabled && invoice.discountAmount != null)
         totRow("Discount:", `- ${currSymbol} ${invoice.discountAmount.toFixed(2)}`);
 
-      // Total box (filled)
-      ty += 2;
+      // Full-width TOTAL row
+      ty += 3;
       doc.setFillColor(pr, pg, pb);
-      doc.roundedRect(labelCol - 26, ty - 7, rightCol - labelCol + 26 + M - M + 2, 16, 2, 2, "F");
+      doc.rect(M, ty - 6, pageW - M * 2, 18, "F");
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(`TOTAL (${currency}):`, labelCol, ty + 4, { align: "right" });
-      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, rightCol - 1, ty + 4, { align: "right" });
-      ty += 20;
+      doc.text(`TOTAL (${currency})`, M + 5, ty + 6);
+      doc.text(`${currSymbol} ${invoice.total.toFixed(2)}`, pageW - M - 4, ty + 6, { align: "right" });
+      ty += 24;
 
       // Bank details
       if (settings?.bankName || settings?.bankIban || settings?.bankAccount) {

@@ -248,16 +248,16 @@ export default function QuotationDetailPage() {
       if (quotation.discountEnabled && quotation.discountAmount != null)
         totRow("Discount:", `- ${currSymbol} ${quotation.discountAmount.toFixed(2)}`);
 
-      // Total box (filled)
-      ty += 2;
+      // Full-width TOTAL row
+      ty += 3;
       doc.setFillColor(30, 64, 175);
-      doc.roundedRect(labelCol - 26, ty - 7, rightCol - labelCol + 44, 16, 2, 2, "F");
+      doc.rect(M, ty - 6, pageW - M * 2, 18, "F");
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(`TOTAL (${currency}):`, labelCol, ty + 4, { align: "right" });
-      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, rightCol - 1, ty + 4, { align: "right" });
-      ty += 20;
+      doc.text(`TOTAL (${currency})`, M + 5, ty + 6);
+      doc.text(`${currSymbol} ${quotation.total.toFixed(2)}`, pageW - M - 4, ty + 6, { align: "right" });
+      ty += 24;
 
       if (quotation.notes) {
         doc.setFontSize(11);
