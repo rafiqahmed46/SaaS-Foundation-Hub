@@ -479,10 +479,10 @@ function NotesTab({ companyId }: { companyId: string }) {
 
 function normaliseScheduleStatus(raw: string): string {
   const v = raw.toLowerCase().trim();
-  if (v === "done" || v === "completed" || v === "complete" || v === "finished") return "completed";
-  if (v.includes("cancel")) return "cancelled";
+  if (v === "done" || v === "completed" || v === "complete" || v === "finished") return "done";
+  if (v.includes("cancel")) return "done";
   if (v === "in progress" || v === "inprogress" || v === "in-progress" || v === "started") return "in-progress";
-  return "pending";
+  return "todo";
 }
 
 function normaliseCustomerType(raw: string): string {

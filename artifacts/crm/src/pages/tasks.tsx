@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTasks, addTask, updateTask, deleteTask, getCustomers, Task, Customer } from "@/lib/firestore";
@@ -14,10 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STATUS_CONFIG = {
-  todo: { label: "To Do", icon: Circle, color: "text-gray-500", bg: "bg-gray-100" },
-  "in-progress": { label: "In Progress", icon: Clock, color: "text-blue-600", bg: "bg-blue-100" },
-  done: { label: "Done", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  todo:         { label: "To Do",       icon: Circle,       color: "text-gray-500",  bg: "bg-gray-100"  },
+  pending:      { label: "To Do",       icon: Circle,       color: "text-gray-500",  bg: "bg-gray-100"  },
+  "in-progress":{ label: "In Progress", icon: Clock,        color: "text-blue-600",  bg: "bg-blue-100"  },
+  done:         { label: "Done",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
+  completed:    { label: "Done",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
+  cancelled:    { label: "Done",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
 };
 
 const PRIORITY_CONFIG = {
