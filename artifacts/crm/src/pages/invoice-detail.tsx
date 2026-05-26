@@ -89,7 +89,7 @@ export default function InvoiceDetailPage() {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
-      const currency = settings?.currency || "AED";
+      const currency = invoice?.currency || settings?.currency || "AED";
       const currSymbol = CURRENCIES[currency] || currency;
       const taxLabel = settings?.taxLabel || "VAT";
       const pageW = doc.internal.pageSize.getWidth();
@@ -274,7 +274,7 @@ export default function InvoiceDetailPage() {
     try {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ format: "a5" });
-      const currency = settings?.currency || "AED";
+      const currency = invoice?.currency || settings?.currency || "AED";
       const currSymbol = CURRENCIES[currency] || currency;
       const taxLabel = settings?.taxLabel || "VAT";
       const pageW = doc.internal.pageSize.getWidth();
@@ -411,7 +411,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  const currency = settings?.currency || "AED";
+  const currency = invoice?.currency || settings?.currency || "AED";
   const currSymbol = CURRENCIES[currency] || currency;
 
   if (loading) {

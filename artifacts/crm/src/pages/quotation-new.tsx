@@ -93,6 +93,7 @@ export default function QuotationNewPage() {
         discountValue: discountEnabled ? discountValue : undefined,
         discountAmount: discountEnabled ? discountAmount : undefined,
         total,
+        currency: settings?.currency || "AED",
         notes: notes.trim() || undefined,
         validUntil: validUntil || undefined,
       });

@@ -136,7 +136,7 @@ export default function QuotationDetailPage() {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
-      const currency = settings?.currency || "AED";
+      const currency = quotation?.currency || settings?.currency || "AED";
       const currSymbol = getCurrencySymbol(currency);
       const taxLabel = settings?.taxLabel || "VAT";
       const pageW = doc.internal.pageSize.getWidth();
@@ -260,7 +260,7 @@ export default function QuotationDetailPage() {
     }
   }
 
-  const currency = settings?.currency || "AED";
+  const currency = quotation?.currency || settings?.currency || "AED";
   const currSymbol = getCurrencySymbol(currency);
   const taxLabel = settings?.taxLabel || "VAT";
 

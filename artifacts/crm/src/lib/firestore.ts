@@ -109,6 +109,7 @@ export interface Invoice {
   discountValue?: number;
   discountAmount?: number;
   total: number;
+  currency?: string;
   notes?: string;
   dueDate?: string;
   poNumber?: string;
@@ -158,6 +159,7 @@ export interface Quotation {
   discountValue?: number;
   discountAmount?: number;
   total: number;
+  currency?: string;
   notes?: string;
   validUntil?: string;
   createdAt: string;

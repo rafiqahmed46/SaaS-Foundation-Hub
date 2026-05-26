@@ -120,6 +120,7 @@ export default function InvoiceNewPage() {
         discountValue: discountEnabled ? discountValue : undefined,
         discountAmount: discountEnabled ? discountAmount : undefined,
         total,
+        currency: settings?.currency || "AED",
         notes: notes.trim() || undefined,
         dueDate: dueDate || undefined,
         poNumber: poNumber.trim() || undefined,
