@@ -48,11 +48,11 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function addCustomer(data: Omit<Customer, "id" | "createdAt">) {
-  return addDoc(collection(db, "customers"), { ...data, createdAt: new Date().toISOString() });
+  return addDoc(collection(db, "customers"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
 }
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
-  return updateDoc(doc(db, "customers", id), data);
+  return updateDoc(doc(db, "customers", id), stripUndefined(data as Record<string, unknown>));
 }
 
 export async function deleteCustomer(id: string) {
@@ -217,11 +217,11 @@ export async function getTasks(companyId: string): Promise<Task[]> {
 }
 
 export async function addTask(data: Omit<Task, "id" | "createdAt">) {
-  return addDoc(collection(db, "tasks"), { ...data, createdAt: new Date().toISOString() });
+  return addDoc(collection(db, "tasks"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
 }
 
 export async function updateTask(id: string, data: Partial<Task>) {
-  return updateDoc(doc(db, "tasks", id), data);
+  return updateDoc(doc(db, "tasks", id), stripUndefined(data as Record<string, unknown>));
 }
 
 export async function deleteTask(id: string) {
