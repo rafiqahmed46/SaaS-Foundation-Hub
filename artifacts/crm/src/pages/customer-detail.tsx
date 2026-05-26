@@ -4,7 +4,8 @@ import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getCustomer, updateCustomer, getInvoices, getQuotations,
-  Customer, Invoice, Quotation, Settings, getSettings,
+  getCustomerVisits, addCustomerVisit,
+  Customer, Invoice, Quotation, Settings, CustomerVisit, getSettings,
 } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
   FileCheck, Pencil, TrendingUp, Receipt, ClipboardList,
 } from "lucide-react";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
+import CustomerMap from "@/components/CustomerMap";
 
 // ── Status pill colours ──────────────────────────────────────────────────────
 
@@ -40,8 +42,6 @@ const QUOTE_STATUS: Record<string, string> = {
   expired: "bg-amber-100 text-amber-700",
 };
 
-// ── Timeline item type ───────────────────────────────────────────────────────
-
 type TimelineItem =
   | { kind: "invoice"; data: Invoice }
   | { kind: "quotation"; data: Quotation };
@@ -59,6 +59,7 @@ export default function CustomerDetailPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [visits, setVisits] = useState<CustomerVisit[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -69,22 +70,49 @@ export default function CustomerDetailPage() {
     if (!id || !user?.companyId) return;
     async function load() {
       try {
-        const [cust, invs, quots, sett] = await Promise.all([
+        const [cust, invs, quots, sett, vis] = await Promise.all([
           getCustomer(id!),
           getInvoices(user!.companyId!),
           getQuotations(user!.companyId!),
           getSettings(user!.companyId!),
+          getCustomerVisits(id!),
         ]);
         setCustomer(cust);
         setInvoices(invs.filter((i) => i.customerId === id));
         setQuotations(quots.filter((q) => q.customerId === id));
         setSettings(sett);
+        setVisits(vis);
       } finally {
         setLoading(false);
       }
     }
     load();
   }, [id, user?.companyId]);
+
+  async function handleCheckIn(lat: number, lng: number) {
+    if (!id) return;
+    try {
+      await addCustomerVisit(id, {
+        customerId: id,
+        lat,
+        lng,
+        timestamp: new Date().toISOString(),
+      });
+      // Prepend to visits list
+      setVisits((prev) => [
+        { id: Date.now().toString(), customerId: id, lat, lng, timestamp: new Date().toISOString() },
+        ...prev,
+      ]);
+      toast({ title: "Checked in!", description: "Visit recorded for this customer." });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied") {
+        toast({ title: "Permission denied", description: "Fix Firestore rules to allow subcollection writes.", variant: "destructive" });
+      } else {
+        toast({ title: "Could not record visit", variant: "destructive" });
+      }
+    }
+  }
 
   function openEdit() {
     if (!customer) return;
@@ -114,7 +142,9 @@ export default function CustomerDetailPage() {
         notes: form.notes.trim() || undefined,
       });
       setCustomer((prev) =>
-        prev ? { ...prev, ...form, phone: form.phone || undefined, address: form.address || undefined, notes: form.notes || undefined } : prev
+        prev
+          ? { ...prev, ...form, phone: form.phone || undefined, address: form.address || undefined, notes: form.notes || undefined }
+          : prev
       );
       toast({ title: "Customer updated" });
       setEditOpen(false);
@@ -130,7 +160,7 @@ export default function CustomerDetailPage() {
     }
   }
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
+  // ── Derived stats ────────────────────────────────────────────────────────
 
   const currency = settings?.currency || "AED";
   const sym = getCurrencySymbol(currency);
@@ -143,26 +173,22 @@ export default function CustomerDetailPage() {
     .filter((i) => i.status !== "cancelled")
     .reduce((sum, i) => sum + i.total, 0);
 
-  // ── Timeline: merge invoices + quotations, sort by date desc ──────────────
-
   const timeline: TimelineItem[] = [
     ...invoices.map((i): TimelineItem => ({ kind: "invoice", data: i })),
     ...quotations.map((q): TimelineItem => ({ kind: "quotation", data: q })),
   ].sort((a, b) => b.data.createdAt.localeCompare(a.data.createdAt));
 
-  // ── Loading skeleton ───────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────────────
 
   if (loading) return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Skeleton className="w-16 h-16 rounded-full" />
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-56" />
-          </div>
+          <div className="space-y-2"><Skeleton className="h-6 w-40" /><Skeleton className="h-4 w-56" /></div>
         </div>
         <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-80 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
     </Layout>
@@ -186,7 +212,10 @@ export default function CustomerDetailPage() {
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate("/customers")} className="p-2 rounded-lg hover:bg-muted transition-colors self-start mt-1">
+            <button
+              onClick={() => navigate("/customers")}
+              className="p-2 rounded-lg hover:bg-muted transition-colors self-start mt-1"
+            >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-3">
@@ -236,8 +265,6 @@ export default function CustomerDetailPage() {
                 </div>
               )}
             </div>
-
-            {/* Quick actions */}
             {customer.phone && (
               <div className="flex gap-2 mt-4 pt-4 border-t">
                 <a
@@ -262,9 +289,9 @@ export default function CustomerDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             { label: "Total Billed", value: `${sym} ${totalBilled.toFixed(2)}`, icon: TrendingUp, color: "text-primary" },
-            { label: "Total Paid", value: `${sym} ${totalRevenue.toFixed(2)}`, icon: Receipt, color: "text-green-600" },
-            { label: "Invoices", value: String(invoices.length), icon: FileText, color: "text-blue-600" },
-            { label: "Quotations", value: String(quotations.length), icon: ClipboardList, color: "text-amber-600" },
+            { label: "Total Paid",   value: `${sym} ${totalRevenue.toFixed(2)}`, icon: Receipt,    color: "text-green-600" },
+            { label: "Invoices",     value: String(invoices.length),             icon: FileText,   color: "text-blue-600" },
+            { label: "Quotations",   value: String(quotations.length),           icon: ClipboardList, color: "text-amber-600" },
           ].map(({ label, value, icon: Icon, color }) => (
             <Card key={label}>
               <CardContent className="p-4">
@@ -278,23 +305,36 @@ export default function CustomerDetailPage() {
           ))}
         </div>
 
+        {/* ── Location Map ── */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-4 h-4 text-primary" />
+              <h2 className="text-base font-semibold">Location & Visits</h2>
+              {visits.length > 0 && (
+                <span className="ml-auto text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+                  {visits.length} visit{visits.length !== 1 ? "s" : ""} recorded
+                </span>
+              )}
+            </div>
+            <CustomerMap
+              customerId={id!}
+              address={customer.address}
+              visits={visits}
+              onCheckIn={handleCheckIn}
+            />
+          </CardContent>
+        </Card>
+
         {/* ── Activity Timeline ── */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold">Activity Timeline</h2>
             <div className="flex gap-2">
-              <Button
-                size="sm" variant="outline"
-                onClick={() => navigate(`/invoices/new`)}
-                className="gap-1.5 text-xs h-8"
-              >
+              <Button size="sm" variant="outline" onClick={() => navigate("/invoices/new")} className="gap-1.5 text-xs h-8">
                 <FileText className="w-3.5 h-3.5" /> New Invoice
               </Button>
-              <Button
-                size="sm" variant="outline"
-                onClick={() => navigate(`/quotations/new`)}
-                className="gap-1.5 text-xs h-8"
-              >
+              <Button size="sm" variant="outline" onClick={() => navigate("/quotations/new")} className="gap-1.5 text-xs h-8">
                 <FileCheck className="w-3.5 h-3.5" /> New Quote
               </Button>
             </div>
@@ -308,9 +348,7 @@ export default function CustomerDetailPage() {
             </div>
           ) : (
             <div className="relative">
-              {/* vertical line */}
               <div className="absolute left-5 top-0 bottom-0 w-px bg-border" />
-
               <div className="space-y-3">
                 {timeline.map((item, idx) => {
                   const isInvoice = item.kind === "invoice";
@@ -325,15 +363,12 @@ export default function CustomerDetailPage() {
 
                   return (
                     <div key={`${item.kind}-${item.data.id}`} className="relative flex items-start gap-4 pl-2">
-                      {/* dot */}
                       <div className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isInvoice ? "bg-blue-50 border-2 border-blue-200" : "bg-amber-50 border-2 border-amber-200"}`}>
                         {isInvoice
                           ? <FileText className="w-3.5 h-3.5 text-blue-600" />
                           : <FileCheck className="w-3.5 h-3.5 text-amber-600" />
                         }
                       </div>
-
-                      {/* card */}
                       <button
                         onClick={() => navigate(href)}
                         className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-left bg-background border rounded-xl px-4 py-3 hover:border-primary/40 hover:shadow-sm transition-all group"
@@ -352,8 +387,6 @@ export default function CustomerDetailPage() {
                           <span className="text-xs text-muted-foreground">{fmtDate(date)}</span>
                         </div>
                       </button>
-
-                      {/* connector line spacer for last item */}
                       {idx === timeline.length - 1 && (
                         <div className="absolute left-5 top-7 bottom-0 w-px bg-background" />
                       )}
@@ -364,6 +397,8 @@ export default function CustomerDetailPage() {
             </div>
           )}
         </div>
+
+        <Separator className="my-8" />
       </div>
 
       {/* ── Edit Dialog ── */}

@@ -53,6 +53,31 @@ export async function deleteCustomer(id: string) {
   return deleteDoc(doc(db, "customers", id));
 }
 
+// ── Customer Visits ──────────────────────────────────────────────────────────
+
+export interface CustomerVisit {
+  id: string;
+  customerId: string;
+  lat: number;
+  lng: number;
+  timestamp: string;
+  note?: string;
+}
+
+export async function getCustomerVisits(customerId: string): Promise<CustomerVisit[]> {
+  const snap = await getDocs(collection(db, "customers", customerId, "visits"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as CustomerVisit))
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+export async function addCustomerVisit(
+  customerId: string,
+  data: Omit<CustomerVisit, "id">
+) {
+  return addDoc(collection(db, "customers", customerId, "visits"), data);
+}
+
 // ── Invoice ──────────────────────────────────────────────────────────────────
 
 export interface InvoiceItem {
