@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getCustomer, updateCustomer, getInvoices, getQuotations,
   getCustomerVisits, addCustomerVisit,
-  Customer, Invoice, Quotation, Settings, CustomerVisit, getSettings,
+  getTasks, addTask, updateTask, deleteTask,
+  Customer, Invoice, Quotation, Settings, CustomerVisit, Task, getSettings,
 } from "@/lib/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,15 @@ import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Mail, FileText,
   FileCheck, Pencil, TrendingUp, Receipt, ClipboardList, Navigation,
+  CheckSquare, Circle, Clock, CheckCircle2, AlertTriangle, Trash2, Plus, Download,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 import CustomerMap from "@/components/CustomerMap";
 
@@ -63,26 +68,36 @@ export default function CustomerDetailPage() {
   const [visits, setVisits] = useState<CustomerVisit[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", notes: "" });
   const [saving, setSaving] = useState(false);
+
+  const emptyTaskForm = { title: "", description: "", status: "todo" as Task["status"], priority: "medium" as Task["priority"], dueDate: "" };
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [taskForm, setTaskForm] = useState(emptyTaskForm);
+  const [savingTask, setSavingTask] = useState(false);
+  const [taskDeleteId, setTaskDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || !user?.companyId) return;
     async function load() {
       try {
-        const [cust, invs, quots, sett, vis] = await Promise.all([
+        const [cust, invs, quots, sett, vis, allTasks] = await Promise.all([
           getCustomer(id!),
           getInvoices(user!.companyId!),
           getQuotations(user!.companyId!),
           getSettings(user!.companyId!),
           getCustomerVisits(id!),
+          getTasks(user!.companyId!),
         ]);
         setCustomer(cust);
         setInvoices(invs.filter((i) => i.customerId === id));
         setQuotations(quots.filter((q) => q.customerId === id));
         setSettings(sett);
         setVisits(vis);
+        setTasks(allTasks.filter((t) => t.customerId === id));
       } finally {
         setLoading(false);
       }
@@ -173,6 +188,150 @@ export default function CustomerDetailPage() {
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  // ── Task handlers ────────────────────────────────────────────────────────
+
+  const TASK_STATUS = {
+    todo: { label: "To Do", Icon: Circle, color: "text-gray-500", bg: "bg-gray-100" },
+    "in-progress": { label: "In Progress", Icon: Clock, color: "text-blue-600", bg: "bg-blue-100" },
+    done: { label: "Done", Icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
+  };
+  const TASK_PRIORITY = {
+    low: { label: "Low", color: "text-gray-500", dot: "bg-gray-400" },
+    medium: { label: "Medium", color: "text-amber-600", dot: "bg-amber-400" },
+    high: { label: "High", color: "text-red-600", dot: "bg-red-500" },
+  };
+
+  function openAddTask() {
+    setEditTask(null);
+    setTaskForm(emptyTaskForm);
+    setTaskDialogOpen(true);
+  }
+
+  function openEditTask(t: Task) {
+    setEditTask(t);
+    setTaskForm({ title: t.title, description: t.description || "", status: t.status, priority: t.priority, dueDate: t.dueDate || "" });
+    setTaskDialogOpen(true);
+  }
+
+  async function handleTaskSave() {
+    if (!user?.companyId || !customer) return;
+    if (!taskForm.title.trim()) { toast({ title: "Title is required", variant: "destructive" }); return; }
+    setSavingTask(true);
+    try {
+      const payload: Omit<Task, "id" | "createdAt"> = {
+        companyId: user.companyId,
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || undefined,
+        customerId: id,
+        customerName: customer.name,
+        status: taskForm.status,
+        priority: taskForm.priority,
+        dueDate: taskForm.dueDate || undefined,
+      };
+      if (editTask) {
+        await updateTask(editTask.id, payload);
+        setTasks((prev) => prev.map((t) => t.id === editTask.id ? { ...t, ...payload } : t));
+        toast({ title: "Task updated" });
+      } else {
+        const ref = await addTask(payload);
+        setTasks((prev) => [{ id: (ref as { id: string }).id, ...payload, createdAt: new Date().toISOString() }, ...prev]);
+        toast({ title: "Task created" });
+      }
+      setTaskDialogOpen(false);
+    } catch {
+      toast({ title: "Could not save task", variant: "destructive" });
+    } finally {
+      setSavingTask(false);
+    }
+  }
+
+  async function handleTaskStatusToggle(task: Task) {
+    const next: Task["status"] = task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "done" : "todo";
+    try {
+      await updateTask(task.id, { status: next });
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
+    } catch {
+      toast({ title: "Could not update task", variant: "destructive" });
+    }
+  }
+
+  async function handleTaskDelete() {
+    if (!taskDeleteId) return;
+    try {
+      await deleteTask(taskDeleteId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskDeleteId));
+      toast({ title: "Task deleted" });
+    } catch {
+      toast({ title: "Could not delete task", variant: "destructive" });
+    } finally {
+      setTaskDeleteId(null);
+    }
+  }
+
+  async function handleDownloadSchedulePDF() {
+    if (!customer) return;
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF();
+      const pageW = doc.internal.pageSize.getWidth();
+
+      // Header bar
+      doc.setFillColor(30, 64, 175);
+      doc.rect(0, 0, pageW, 34, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Service Schedule", 14, 14);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(settings?.companyName || "Your Company", 14, 22);
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, pageW - 14, 22, { align: "right" });
+
+      // Customer info
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Customer: ${customer.name}`, 14, 44);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      let cy = 51;
+      if (customer.email) { doc.text(`Email: ${customer.email}`, 14, cy); cy += 5; }
+      if (customer.phone) { doc.text(`Phone: ${customer.phone}`, 14, cy); cy += 5; }
+      if (customer.address) { doc.text(`Address: ${customer.address}`, 14, cy); cy += 5; }
+
+      const tableRows = tasks.map((t, i) => [
+        String(i + 1),
+        t.title,
+        t.description || "",
+        TASK_STATUS[t.status].label,
+        TASK_PRIORITY[t.priority].label,
+        t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "—",
+      ]);
+
+      autoTable(doc, {
+        startY: cy + 4,
+        head: [["#", "Task", "Description", "Status", "Priority", "Due Date"]],
+        body: tableRows,
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 38 }, 2: { cellWidth: 60 }, 3: { cellWidth: 24 }, 4: { cellWidth: 22 }, 5: { cellWidth: 24 } },
+        alternateRowStyles: { fillColor: [245, 247, 255] },
+        margin: { left: 14, right: 14 },
+      });
+
+      const totalY = (doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || 200;
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Total tasks: ${tasks.length}  ·  Done: ${tasks.filter((t) => t.status === "done").length}  ·  In Progress: ${tasks.filter((t) => t.status === "in-progress").length}  ·  To Do: ${tasks.filter((t) => t.status === "todo").length}`, 14, totalY + 8);
+
+      doc.save(`service-schedule-${customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+      toast({ title: "PDF downloaded" });
+    } catch {
+      toast({ title: "Could not generate PDF", variant: "destructive" });
     }
   }
 
@@ -362,6 +521,90 @@ export default function CustomerDetailPage() {
           </CardContent>
         </Card>
 
+        {/* ── Service Tasks ── */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-primary" />
+                <h2 className="text-base font-semibold">Service Tasks</h2>
+                {tasks.length > 0 && (
+                  <span className="text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+                    {tasks.filter((t) => t.status === "done").length}/{tasks.length} done
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {tasks.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={handleDownloadSchedulePDF} className="gap-1.5 text-xs h-8">
+                    <Download className="w-3.5 h-3.5" /> PDF Schedule
+                  </Button>
+                )}
+                <Button size="sm" onClick={openAddTask} className="gap-1.5 text-xs h-8">
+                  <Plus className="w-3.5 h-3.5" /> Add Task
+                </Button>
+              </div>
+            </div>
+
+            {tasks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                <CheckSquare className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="font-medium text-sm">No tasks yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Add service tasks to schedule work for this customer.</p>
+                <Button size="sm" variant="outline" onClick={openAddTask} className="mt-3 gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> Add First Task
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {tasks.map((task) => {
+                  const { Icon, color, bg, label: statusLabel } = TASK_STATUS[task.status];
+                  const { label: priLabel, color: priColor, dot: priDot } = TASK_PRIORITY[task.priority];
+                  const isOverdue = task.dueDate && task.status !== "done" && new Date(task.dueDate) < new Date();
+                  return (
+                    <div key={task.id} className={cn("rounded-xl border bg-background p-3.5 flex items-start gap-3 hover:border-primary/30 transition-colors", isOverdue && "border-red-200 bg-red-50/30")}>
+                      <button
+                        onClick={() => handleTaskStatusToggle(task)}
+                        className={cn("mt-0.5 shrink-0 transition-colors hover:opacity-70", color)}
+                        title="Click to advance status"
+                      >
+                        <Icon className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn("font-medium text-sm leading-tight", task.status === "done" && "line-through text-muted-foreground")}>{task.title}</p>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={cn("flex items-center gap-1 text-xs font-medium", priColor)}>
+                              <span className={cn("w-1.5 h-1.5 rounded-full", priDot)} />
+                              {priLabel}
+                            </span>
+                            <span className={cn("ml-1 px-2 py-0.5 rounded-full text-xs font-medium", bg, color)}>{statusLabel}</span>
+                          </div>
+                        </div>
+                        {task.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>}
+                        {task.dueDate && (
+                          <p className={cn("text-xs mt-1 flex items-center gap-1", isOverdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
+                            {isOverdue && <AlertTriangle className="w-3 h-3" />}
+                            Due {new Date(task.dueDate).toLocaleDateString("en-GB")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button onClick={() => openEditTask(task)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setTaskDeleteId(task.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* ── Activity Timeline ── */}
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -436,6 +679,74 @@ export default function CustomerDetailPage() {
 
         <Separator className="my-8" />
       </div>
+
+      {/* ── Task Dialog ── */}
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editTask ? "Edit Task" : "New Task"}</DialogTitle>
+            <DialogDescription>
+              {editTask ? "Update this service task." : `Create a task for ${customer?.name}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label>Title *</Label>
+              <Input value={taskForm.title} onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. AC filter replacement" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Textarea value={taskForm.description} onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))} placeholder="Additional details..." rows={2} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={taskForm.status} onValueChange={(v) => setTaskForm((f) => ({ ...f, status: v as Task["status"] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((f) => ({ ...f, priority: v as Task["priority"] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Due Date <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setTaskDialogOpen(false)} disabled={savingTask}>Cancel</Button>
+            <Button onClick={handleTaskSave} disabled={savingTask}>{savingTask ? "Saving…" : editTask ? "Save Changes" : "Create Task"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Task Delete Confirm ── */}
+      <AlertDialog open={!!taskDeleteId} onOpenChange={(open) => !open && setTaskDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete this task. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTaskDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Edit Dialog ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
