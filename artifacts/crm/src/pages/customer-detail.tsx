@@ -525,11 +525,7 @@ export default function CustomerDetailPage() {
     }
   }
 
-  function handleWhatsAppSchedule() {
-    if (!customer?.phone) {
-      toast({ title: "No phone number", description: "This customer has no phone number on file.", variant: "destructive" });
-      return;
-    }
+  function buildWhatsAppText() {
     const today = new Date().toLocaleDateString("en-GB");
     const company = settings?.companyName || "Our Company";
     const trn = settings?.trn ? `TRN: ${settings.trn}` : "";
@@ -539,16 +535,15 @@ export default function CustomerDetailPage() {
       const due = t.dueDate ? ` | Due: ${new Date(t.dueDate).toLocaleDateString("en-GB")}` : "";
       return `${i + 1}. ${statusEmoji[t.status]} ${t.title}${due} ${priorityTag[t.priority]}`;
     }).join("\n");
-
     const done = tasks.filter((t) => t.status === "done").length;
-    const msg = [
+    return [
       `*SERVICE SCHEDULE*`,
       `*${company}*${trn ? `\n${trn}` : ""}`,
       ``,
-      `*Prepared for:* ${customer.name}`,
-      customer.phone ? `Tel: ${customer.phone}` : "",
-      customer.email ? `Email: ${customer.email}` : "",
-      customer.address ? `Address: ${customer.address}` : "",
+      `*Prepared for:* ${customer?.name ?? ""}`,
+      customer?.phone   ? `Tel: ${customer.phone}`     : "",
+      customer?.email   ? `Email: ${customer.email}`   : "",
+      customer?.address ? `Address: ${customer.address}` : "",
       ``,
       `*Date:* ${today}`,
       ``,
@@ -556,10 +551,43 @@ export default function CustomerDetailPage() {
       taskLines,
       ``,
       `*Summary:* ${tasks.length} tasks | ✅ Done: ${done} | 🔄 In Progress: ${tasks.filter((t) => t.status === "in-progress").length} | 🔲 Pending: ${tasks.filter((t) => t.status === "todo").length}`,
-    ].filter((l) => l !== undefined).join("\n");
+    ].filter(Boolean).join("\n");
+  }
 
-    const phone = customer.phone.replace(/\D/g, "");
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  async function handleWhatsAppSchedule() {
+    if (!customer) return;
+    const msg = buildWhatsAppText();
+    const phone = (customer.phone || "").replace(/\D/g, "");
+    const waUrl = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : null;
+
+    // Try Web Share API (shares the actual PDF file — works on mobile & modern desktop)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        const doc = await buildSchedulePDF();
+        const blob = doc.output("blob");
+        const file = new File([blob], schedulePDFFilename(), { type: "application/pdf" });
+
+        // Check if the browser can share files
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Service Schedule – ${customer.name}`,
+            text: msg,
+          });
+          return;
+        }
+      } catch (err) {
+        // User cancelled or share failed — fall through to wa.me link
+        if ((err as { name?: string }).name === "AbortError") return;
+      }
+    }
+
+    // Fallback: open WhatsApp with pre-filled text (no file attachment)
+    if (waUrl) {
+      window.open(waUrl, "_blank");
+    } else {
+      toast({ title: "No phone number", description: "Add a phone number to this customer to send via WhatsApp.", variant: "destructive" });
+    }
   }
 
   // ── Derived stats ────────────────────────────────────────────────────────
