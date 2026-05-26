@@ -284,59 +284,221 @@ export default function CustomerDetailPage() {
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
       const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const brandR = 30, brandG = 64, brandB = 175;
+      const today = new Date();
+      const todayStr = today.toLocaleDateString("en-GB"); // DD/MM/YYYY UAE format
 
-      // Header bar
-      doc.setFillColor(30, 64, 175);
-      doc.rect(0, 0, pageW, 34, "F");
+      // ── Header bar ──────────────────────────────────────────────────────────
+      const barH = 42;
+      doc.setFillColor(brandR, brandG, brandB);
+      doc.rect(0, 0, pageW, barH, "F");
+
+      // Logo (if available)
+      let logoEndX = 14;
+      if (settings?.companyLogo) {
+        try {
+          const fmt = settings.companyLogo.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(settings.companyLogo, fmt, 14, 6, 28, 28);
+          logoEndX = 48;
+        } catch { /* skip logo on error */ }
+      }
+
+      // Company name
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
+      doc.setFontSize(17);
       doc.setFont("helvetica", "bold");
-      doc.text("Service Schedule", 14, 14);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text(settings?.companyName || "Your Company", 14, 22);
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, pageW - 14, 22, { align: "right" });
+      doc.text(settings?.companyName || "Your Company", logoEndX, 16);
 
-      // Customer info
-      doc.setTextColor(30, 30, 30);
-      doc.setFontSize(11);
+      // Company sub-details (address, tel, email, website)
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(180, 200, 255);
+      let hY = 23;
+      const companyLines: string[] = [];
+      if (settings?.address) companyLines.push(settings.address);
+      if (settings?.phone)   companyLines.push(`Tel: ${settings.phone}`);
+      if (settings?.email)   companyLines.push(settings.email);
+      if (settings?.website) companyLines.push(settings.website);
+      companyLines.forEach((line) => { doc.text(line, logoEndX, hY); hY += 4.5; });
+
+      // TRN top-right
+      if (settings?.trn) {
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TRN: ${settings.trn}`, pageW - 14, 14, { align: "right" });
+      }
+
+      // "SERVICE SCHEDULE" label top-right
+      doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
-      doc.text(`Customer: ${customer.name}`, 14, 44);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      let cy = 51;
-      if (customer.email) { doc.text(`Email: ${customer.email}`, 14, cy); cy += 5; }
-      if (customer.phone) { doc.text(`Phone: ${customer.phone}`, 14, cy); cy += 5; }
-      if (customer.address) { doc.text(`Address: ${customer.address}`, 14, cy); cy += 5; }
+      doc.setTextColor(255, 255, 255);
+      doc.text("SERVICE SCHEDULE", pageW - 14, settings?.trn ? 27 : 20, { align: "right" });
 
+      // Date top-right below title
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(180, 200, 255);
+      doc.text(`Date: ${todayStr}`, pageW - 14, settings?.trn ? 34 : 28, { align: "right" });
+
+      // ── Prepared For / Customer block ────────────────────────────────────────
+      let y = barH + 10;
+
+      // Left: Prepared For
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 100, 120);
+      doc.text("PREPARED FOR:", 14, y);
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 50);
+      doc.text(customer.name, 14, y + 7);
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      let cy2 = y + 14;
+      if (customer.phone)   { doc.text(`Tel: ${customer.phone}`, 14, cy2);    cy2 += 5; }
+      if (customer.email)   { doc.text(`Email: ${customer.email}`, 14, cy2);  cy2 += 5; }
+      if (customer.address) {
+        const addrLines = doc.splitTextToSize(`Address: ${customer.address}`, 90);
+        doc.text(addrLines, 14, cy2);
+        cy2 += addrLines.length * 5;
+      }
+
+      // Right: Schedule meta
+      const metaX = pageW - 14;
+      const metaLabelX = pageW - 65;
+      let my = y + 7;
+      const meta: [string, string][] = [
+        ["Schedule Date:", todayStr],
+        ["Total Tasks:", String(tasks.length)],
+        ["Completed:", String(tasks.filter((t) => t.status === "done").length)],
+        ["In Progress:", String(tasks.filter((t) => t.status === "in-progress").length)],
+        ["Pending:", String(tasks.filter((t) => t.status === "todo").length)],
+      ];
+      meta.forEach(([label, value]) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(label, metaLabelX, my, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(20);
+        doc.text(value, metaX, my, { align: "right" });
+        my += 6;
+      });
+
+      // Divider
+      y = Math.max(cy2, my) + 6;
+      doc.setDrawColor(brandR, brandG, brandB);
+      doc.setLineWidth(0.5);
+      doc.line(14, y, pageW - 14, y);
+      y += 6;
+
+      // Section heading
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(brandR, brandG, brandB);
+      doc.text("SERVICE TASK SCHEDULE", 14, y);
+      y += 5;
+
+      // ── Tasks table ──────────────────────────────────────────────────────────
       const tableRows = tasks.map((t, i) => [
         String(i + 1),
         t.title,
-        t.description || "",
+        t.description || "—",
         TASK_STATUS[t.status].label,
         TASK_PRIORITY[t.priority].label,
         t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "—",
       ]);
 
       autoTable(doc, {
-        startY: cy + 4,
-        head: [["#", "Task", "Description", "Status", "Priority", "Due Date"]],
+        startY: y,
+        head: [["#", "Task / Service", "Description", "Status", "Priority", "Due Date"]],
         body: tableRows,
-        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 8 },
-        bodyStyles: { fontSize: 8 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 38 }, 2: { cellWidth: 60 }, 3: { cellWidth: 24 }, 4: { cellWidth: 22 }, 5: { cellWidth: 24 } },
+        headStyles: { fillColor: [brandR, brandG, brandB], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+        bodyStyles: { fontSize: 8.5, textColor: 40 },
         alternateRowStyles: { fillColor: [245, 247, 255] },
+        columnStyles: {
+          0: { cellWidth: 9, halign: "center" },
+          1: { cellWidth: 42 },
+          2: { cellWidth: 58 },
+          3: { cellWidth: 24, halign: "center" },
+          4: { cellWidth: 22, halign: "center" },
+          5: { cellWidth: 27, halign: "center" },
+        },
         margin: { left: 14, right: 14 },
+        didParseCell: (data) => {
+          // Colour-code status cells
+          if (data.section === "body" && data.column.index === 3) {
+            const val = data.cell.raw as string;
+            if (val === "Done")        { data.cell.styles.textColor = [22, 163, 74];  data.cell.styles.fontStyle = "bold"; }
+            if (val === "In Progress") { data.cell.styles.textColor = [37, 99, 235];  data.cell.styles.fontStyle = "bold"; }
+            if (val === "To Do")       { data.cell.styles.textColor = [107, 114, 128]; }
+          }
+          // Colour-code priority cells
+          if (data.section === "body" && data.column.index === 4) {
+            const val = data.cell.raw as string;
+            if (val === "High")   { data.cell.styles.textColor = [220, 38, 38];  data.cell.styles.fontStyle = "bold"; }
+            if (val === "Medium") { data.cell.styles.textColor = [217, 119, 6];  data.cell.styles.fontStyle = "bold"; }
+          }
+        },
       });
 
-      const totalY = (doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || 200;
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text(`Total tasks: ${tasks.length}  ·  Done: ${tasks.filter((t) => t.status === "done").length}  ·  In Progress: ${tasks.filter((t) => t.status === "in-progress").length}  ·  To Do: ${tasks.filter((t) => t.status === "todo").length}`, 14, totalY + 8);
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      // ── Summary bar ──────────────────────────────────────────────────────────
+      const sumY = finalY + 8;
+      doc.setFillColor(240, 244, 255);
+      doc.roundedRect(14, sumY, pageW - 28, 14, 2, 2, "F");
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(brandR, brandG, brandB);
+      const done = tasks.filter((t) => t.status === "done").length;
+      const inProg = tasks.filter((t) => t.status === "in-progress").length;
+      const todo = tasks.filter((t) => t.status === "todo").length;
+      doc.text(
+        `Total: ${tasks.length}   ·   Completed: ${done}   ·   In Progress: ${inProg}   ·   Pending: ${todo}`,
+        pageW / 2, sumY + 9, { align: "center" }
+      );
+
+      // ── Notes / footer text ──────────────────────────────────────────────────
+      let footY = sumY + 22;
+      if (settings?.invoiceFooter || settings?.paymentTerms) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(80);
+        doc.text("Notes:", 14, footY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120);
+        const noteText = [settings.invoiceFooter, settings.paymentTerms].filter(Boolean).join(" | ");
+        const noteLines = doc.splitTextToSize(noteText, pageW - 28);
+        doc.text(noteLines, 14, footY + 5);
+        footY += 5 + noteLines.length * 4.5;
+      }
+
+      // ── Page footer ──────────────────────────────────────────────────────────
+      // Bottom rule
+      doc.setDrawColor(200, 210, 240);
+      doc.setLineWidth(0.3);
+      doc.line(14, pageH - 16, pageW - 14, pageH - 16);
+
+      // Company name left, TRN center, page right
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150);
+      doc.text(settings?.companyName || "", 14, pageH - 10);
+      if (settings?.trn) {
+        doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
+      }
+      doc.text(`Page 1`, pageW - 14, pageH - 10, { align: "right" });
 
       doc.save(`service-schedule-${customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`);
-      toast({ title: "PDF downloaded" });
-    } catch {
+      toast({ title: "Service Schedule PDF downloaded" });
+    } catch (err) {
+      console.error(err);
       toast({ title: "Could not generate PDF", variant: "destructive" });
     }
   }
