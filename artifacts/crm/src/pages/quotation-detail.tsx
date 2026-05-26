@@ -293,7 +293,7 @@ export default function QuotationDetailPage() {
         const blob = doc.output("blob");
         const file = new File([blob], filename, { type: "application/pdf" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: filename, text: msg });
+          await navigator.share({ files: [file], title: filename });
           return;
         }
       }
