@@ -97,7 +97,13 @@ export default function CustomerDetailPage() {
         setQuotations(quots.filter((q) => q.customerId === id));
         setSettings(sett);
         setVisits(vis);
-        setTasks(allTasks.filter((t) => t.customerId === id));
+        const byDate = (a: Task, b: Task) => {
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        };
+        setTasks(allTasks.filter((t) => t.customerId === id).sort(byDate));
       } finally {
         setLoading(false);
       }

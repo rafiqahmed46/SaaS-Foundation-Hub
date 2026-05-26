@@ -130,7 +130,13 @@ export default function TasksPage() {
   }
 
   const counts = { all: tasks.length, todo: tasks.filter((t) => t.status === "todo").length, "in-progress": tasks.filter((t) => t.status === "in-progress").length, done: tasks.filter((t) => t.status === "done").length };
-  const filtered = filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
+  const byDate = (a: Task, b: Task) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  };
+  const filtered = (filter === "all" ? tasks : tasks.filter((t) => t.status === filter)).sort(byDate);
 
   const isOverdue = (task: Task) => task.dueDate && task.status !== "done" && new Date(task.dueDate) < new Date();
 
