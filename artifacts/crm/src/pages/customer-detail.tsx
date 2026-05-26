@@ -325,7 +325,8 @@ export default function CustomerDetailPage() {
       // TRN + title top-right
       doc.setTextColor(180, 205, 255);
       doc.setFontSize(10);
-      if (settings?.trn) {
+      const showTrn = settings?.taxEnabled && settings?.trn;
+      if (showTrn) {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
@@ -334,11 +335,11 @@ export default function CustomerDetailPage() {
       doc.setFontSize(26);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text("SERVICE SCHEDULE", pageW - M, settings?.trn ? 30 : 24, { align: "right" });
+      doc.text("SERVICE SCHEDULE", pageW - M, showTrn ? 30 : 24, { align: "right" });
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(180, 205, 255);
-      doc.text(`Date: ${todayStr}`, pageW - M, settings?.trn ? 42 : 36, { align: "right" });
+      doc.text(`Date: ${todayStr}`, pageW - M, showTrn ? 42 : 36, { align: "right" });
 
       // ── Prepared For / Customer block ───────────────────────────────────────
       let y = 68;
@@ -484,7 +485,7 @@ export default function CustomerDetailPage() {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(150);
       doc.text(settings?.companyName || "", M, pageH - 10);
-      if (settings?.trn) {
+      if (settings?.taxEnabled && settings?.trn) {
         doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
       }
       doc.text("Page 1", pageW - M, pageH - 10, { align: "right" });
@@ -522,7 +523,7 @@ export default function CustomerDetailPage() {
   function buildWhatsAppText() {
     const today = new Date().toLocaleDateString("en-GB");
     const company = settings?.companyName || "Our Company";
-    const trn = settings?.trn ? `TRN: ${settings.trn}` : "";
+    const trn = (settings?.taxEnabled && settings?.trn) ? `TRN: ${settings.trn}` : "";
     const statusEmoji = { todo: "🔲", "in-progress": "🔄", done: "✅" } as Record<string, string>;
     const priorityTag = { low: "[Low]", medium: "[Med]", high: "[HIGH]" } as Record<string, string>;
     const taskLines = tasks.map((t, i) => {

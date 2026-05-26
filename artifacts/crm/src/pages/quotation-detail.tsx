@@ -170,7 +170,7 @@ export default function QuotationDetailPage() {
       // Quote meta (right)
       doc.setTextColor(180, 205, 255);
       doc.setFontSize(10);
-      if (settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
+      if (settings?.taxEnabled && settings?.trn) { doc.text(`TRN: ${settings.trn}`, pageW - M, 33, { align: "right" }); }
       doc.text(`Quote #: ${quotation.quoteNumber}`, pageW - M, 42, { align: "right" });
       doc.text(`Date: ${fmtDate(quotation.createdAt)}`, pageW - M, 50, { align: "right" });
 
@@ -276,7 +276,7 @@ export default function QuotationDetailPage() {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(150);
       doc.text(settings?.companyName || "", M, pageH - 10);
-      if (settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
+      if (settings?.taxEnabled && settings?.trn) doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
       doc.text("Page 1", pageW - M, pageH - 10, { align: "right" });
 
       return doc;
@@ -306,7 +306,7 @@ export default function QuotationDetailPage() {
       const msg = [
         `*QUOTATION – ${quotation!.quoteNumber}*`,
         `*${settings?.companyName || ""}*`,
-        settings?.trn ? `TRN: ${settings.trn}` : "",
+        (settings?.taxEnabled && settings?.trn) ? `TRN: ${settings.trn}` : "",
         ``,
         `*Prepared For:* ${quotation!.customerName}`,
         quotation!.validUntil ? `*Valid Until:* ${fmtDate(quotation!.validUntil)}` : "",
@@ -436,7 +436,7 @@ export default function QuotationDetailPage() {
                 {settings?.address && <p className="text-sm text-muted-foreground">{settings.address}</p>}
                 {settings?.phone && <p className="text-sm text-muted-foreground">{settings.phone}</p>}
                 {settings?.email && <p className="text-sm text-muted-foreground">{settings.email}</p>}
-                {settings?.trn && <p className="text-sm text-muted-foreground font-medium">TRN: {settings.trn}</p>}
+                {settings?.taxEnabled && settings?.trn && <p className="text-sm text-muted-foreground font-medium">TRN: {settings.trn}</p>}
               </div>
               <div className="text-right">
                 <div className="flex items-center justify-end gap-2 mb-1">
