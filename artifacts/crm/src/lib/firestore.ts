@@ -36,10 +36,7 @@ export async function getCustomers(companyId: string): Promise<Customer[]> {
 }
 
 export async function addCustomer(data: Omit<Customer, "id" | "createdAt">) {
-  return addDoc(collection(db, "customers"), {
-    ...data,
-    createdAt: new Date().toISOString(),
-  });
+  return addDoc(collection(db, "customers"), { ...data, createdAt: new Date().toISOString() });
 }
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
@@ -77,6 +74,7 @@ export interface Invoice {
   total: number;
   notes?: string;
   dueDate?: string;
+  poNumber?: string;
   createdAt: string;
 }
 
@@ -93,10 +91,7 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
 }
 
 export async function addInvoice(data: Omit<Invoice, "id" | "createdAt">) {
-  return addDoc(collection(db, "invoices"), {
-    ...data,
-    createdAt: new Date().toISOString(),
-  });
+  return addDoc(collection(db, "invoices"), { ...data, createdAt: new Date().toISOString() });
 }
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
@@ -144,10 +139,7 @@ export async function getQuotation(id: string): Promise<Quotation | null> {
 }
 
 export async function addQuotation(data: Omit<Quotation, "id" | "createdAt">) {
-  return addDoc(collection(db, "quotations"), {
-    ...data,
-    createdAt: new Date().toISOString(),
-  });
+  return addDoc(collection(db, "quotations"), { ...data, createdAt: new Date().toISOString() });
 }
 
 export async function updateQuotation(id: string, data: Partial<Quotation>) {
@@ -161,8 +153,7 @@ export async function deleteQuotation(id: string) {
 export async function getNextQuoteNumber(companyId: string, prefix: string): Promise<string> {
   const q = query(collection(db, "quotations"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  const next = snap.size + 1;
-  return `${prefix}QT-${String(next).padStart(4, "0")}`;
+  return `${prefix}QT-${String(snap.size + 1).padStart(4, "0")}`;
 }
 
 // ── Task ─────────────────────────────────────────────────────────────────────
@@ -187,10 +178,7 @@ export async function getTasks(companyId: string): Promise<Task[]> {
 }
 
 export async function addTask(data: Omit<Task, "id" | "createdAt">) {
-  return addDoc(collection(db, "tasks"), {
-    ...data,
-    createdAt: new Date().toISOString(),
-  });
+  return addDoc(collection(db, "tasks"), { ...data, createdAt: new Date().toISOString() });
 }
 
 export async function updateTask(id: string, data: Partial<Task>) {
@@ -209,13 +197,21 @@ export interface Settings {
   companyLogo?: string;
   currency: string;
   invoicePrefix: string;
+  quotationPrefix?: string;
   taxEnabled: boolean;
   taxRate: number;
+  taxLabel?: string;
+  trn?: string;
   discountEnabled: boolean;
   address?: string;
   phone?: string;
   email?: string;
   website?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIban?: string;
+  paymentTerms?: string;
+  invoiceFooter?: string;
 }
 
 export async function getSettings(companyId: string): Promise<Settings | null> {
@@ -240,6 +236,5 @@ export interface Company {
 export async function getNextInvoiceNumber(companyId: string, prefix: string): Promise<string> {
   const q = query(collection(db, "invoices"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  const next = snap.size + 1;
-  return `${prefix}${String(next).padStart(4, "0")}`;
+  return `${prefix}${String(snap.size + 1).padStart(4, "0")}`;
 }
