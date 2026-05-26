@@ -556,37 +556,22 @@ export default function CustomerDetailPage() {
 
   async function handleWhatsAppSchedule() {
     if (!customer) return;
-    const msg = buildWhatsAppText();
-    const phone = (customer.phone || "").replace(/\D/g, "");
-    const waUrl = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : null;
+    try {
+      // 1 — Download the actual PDF file to the device
+      const doc = await buildSchedulePDF();
+      doc.save(schedulePDFFilename());
 
-    // Try Web Share API (shares the actual PDF file — works on mobile & modern desktop)
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        const doc = await buildSchedulePDF();
-        const blob = doc.output("blob");
-        const file = new File([blob], schedulePDFFilename(), { type: "application/pdf" });
-
-        // Check if the browser can share files
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Service Schedule – ${customer.name}`,
-            text: msg,
-          });
-          return;
-        }
-      } catch (err) {
-        // User cancelled or share failed — fall through to wa.me link
-        if ((err as { name?: string }).name === "AbortError") return;
-      }
-    }
-
-    // Fallback: open WhatsApp with pre-filled text (no file attachment)
-    if (waUrl) {
-      window.open(waUrl, "_blank");
-    } else {
-      toast({ title: "No phone number", description: "Add a phone number to this customer to send via WhatsApp.", variant: "destructive" });
+      // 2 — Open WhatsApp with pre-filled message (user sends the downloaded PDF manually)
+      const msg = buildWhatsAppText();
+      const phone = (customer.phone || "").replace(/\D/g, "");
+      const waUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      setTimeout(() => window.open(waUrl, "_blank"), 500);
+      toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Could not generate PDF", variant: "destructive" });
     }
   }
 

@@ -19,7 +19,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, FileCheck, ArrowRightLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Download, Building2, FileCheck, ArrowRightLeft, Pencil, Eye, ChevronDown, MessageCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CURRENCIES, getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -130,9 +131,9 @@ export default function QuotationDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
-    if (!quotation) return;
-    try {
+  async function buildQuotationPDF() {
+    if (!quotation) throw new Error("No quotation");
+    {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
@@ -252,12 +253,46 @@ export default function QuotationDetailPage() {
         doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
       }
 
-      doc.save(`${quotation.quoteNumber}.pdf`);
-      toast({ title: "PDF downloaded" });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
+      return doc;
     }
+  }
+
+  async function handleViewQuotationPDF() {
+    try {
+      const doc = await buildQuotationPDF();
+      window.open(doc.output("bloburl") as unknown as string, "_blank");
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
+  }
+
+  async function handleDownloadPDF() {
+    try {
+      const doc = await buildQuotationPDF();
+      doc.save(`${quotation!.quoteNumber}.pdf`);
+      toast({ title: "Quotation PDF downloaded" });
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
+  }
+
+  async function handleWhatsAppQuotation() {
+    try {
+      const doc = await buildQuotationPDF();
+      doc.save(`${quotation!.quoteNumber}.pdf`);
+      const sym = getCurrencySymbol(quotation!.currency || settings?.currency || "AED");
+      const msg = [
+        `*QUOTATION*`,
+        `*${settings?.companyName || ""}*`,
+        settings?.trn ? `TRN: ${settings.trn}` : "",
+        ``,
+        `*Prepared For:* ${quotation!.customerName}`,
+        `*Quote No:* ${quotation!.quoteNumber}`,
+        quotation!.validUntil ? `*Valid Until:* ${fmtDate(quotation!.validUntil)}` : "",
+        `*Amount:* ${sym} ${quotation!.total.toFixed(2)}`,
+        `*Status:* ${quotation!.status.toUpperCase()}`,
+        ``,
+        `_PDF saved to your device — please attach it to this chat._`,
+      ].filter(Boolean).join("\n");
+      setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
+      toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
   }
 
   const currency = quotation?.currency || settings?.currency || "AED";
@@ -321,10 +356,25 @@ export default function QuotationDetailPage() {
               <ArrowRightLeft className="w-4 h-4" />
               {alreadyConverted ? "Convert Again" : "Convert to Invoice"}
             </Button>
-            <Button onClick={handleDownloadPDF} className="gap-2" data-testid="button-download-pdf">
-              <Download className="w-4 h-4" />
-              Download PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2" data-testid="button-download-pdf">
+                  <Download className="w-4 h-4" /> Quotation PDF <ChevronDown className="w-3 h-3 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleViewQuotationPDF} className="gap-2 cursor-pointer">
+                  <Eye className="w-4 h-4 text-blue-600" /> View PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadPDF} className="gap-2 cursor-pointer">
+                  <Download className="w-4 h-4 text-primary" /> Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleWhatsAppQuotation} className="gap-2 cursor-pointer">
+                  <MessageCircle className="w-4 h-4 text-green-600" /> Send via WhatsApp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, Receipt, Palette, Pencil } from "lucide-react";
+import { ArrowLeft, Download, Building2, Receipt, Palette, Pencil, Eye, ChevronDown, MessageCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -83,9 +84,9 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
-    if (!invoice) return;
-    try {
+  async function buildInvoicePDF() {
+    if (!invoice) throw new Error("No invoice");
+    {
       const { jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
@@ -261,12 +262,46 @@ export default function InvoiceDetailPage() {
         doc.text(`TRN: ${settings.trn}`, pageW / 2, pageH - 10, { align: "center" });
       }
 
-      doc.save(`${invoice.invoiceNumber}.pdf`);
-      toast({ title: "Invoice PDF downloaded" });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
+      return doc;
     }
+  }
+
+  async function handleViewInvoicePDF() {
+    try {
+      const doc = await buildInvoicePDF();
+      window.open(doc.output("bloburl") as unknown as string, "_blank");
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
+  }
+
+  async function handleDownloadPDF() {
+    try {
+      const doc = await buildInvoicePDF();
+      doc.save(`${invoice!.invoiceNumber}.pdf`);
+      toast({ title: "Invoice PDF downloaded" });
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
+  }
+
+  async function handleWhatsAppInvoice() {
+    try {
+      const doc = await buildInvoicePDF();
+      doc.save(`${invoice!.invoiceNumber}.pdf`);
+      const sym = getCurrencySymbol(invoice!.currency || settings?.currency || "AED");
+      const msg = [
+        `*INVOICE*`,
+        `*${settings?.companyName || ""}*`,
+        settings?.trn ? `TRN: ${settings.trn}` : "",
+        ``,
+        `*Bill To:* ${invoice!.customerName}`,
+        `*Invoice No:* ${invoice!.invoiceNumber}`,
+        invoice!.dueDate ? `*Due Date:* ${fmtDate(invoice!.dueDate)}` : "",
+        `*Amount:* ${sym} ${invoice!.total.toFixed(2)}`,
+        `*Status:* ${invoice!.status.toUpperCase()}`,
+        ``,
+        `_PDF saved to your device — please attach it to this chat._`,
+      ].filter(Boolean).join("\n");
+      setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
+      toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
+    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
   }
 
   async function handleDownloadReceipt() {
@@ -492,10 +527,25 @@ export default function InvoiceDetailPage() {
               <Receipt className="w-4 h-4" />
               Receipt Voucher
             </Button>
-            <Button onClick={handleDownloadPDF} className="gap-2" data-testid="button-download-pdf">
-              <Download className="w-4 h-4" />
-              Invoice PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2" data-testid="button-download-pdf">
+                  <Download className="w-4 h-4" /> Invoice PDF <ChevronDown className="w-3 h-3 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleViewInvoicePDF} className="gap-2 cursor-pointer">
+                  <Eye className="w-4 h-4 text-blue-600" /> View PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadPDF} className="gap-2 cursor-pointer">
+                  <Download className="w-4 h-4 text-primary" /> Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleWhatsAppInvoice} className="gap-2 cursor-pointer">
+                  <MessageCircle className="w-4 h-4 text-green-600" /> Send via WhatsApp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
