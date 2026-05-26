@@ -557,12 +557,22 @@ export default function CustomerDetailPage() {
   async function handleWhatsAppSchedule() {
     if (!customer) return;
     try {
-      // 1 — Download the actual PDF file to the device
       const doc = await buildSchedulePDF();
-      doc.save(schedulePDFFilename());
-
-      // 2 — Open WhatsApp with pre-filled message (user sends the downloaded PDF manually)
+      const filename = schedulePDFFilename();
       const msg = buildWhatsAppText();
+
+      // Mobile: use native OS share sheet so the PDF lands directly in WhatsApp
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        const blob = doc.output("blob");
+        const file = new File([blob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `Service Schedule – ${customer.name}`, text: msg });
+          return;
+        }
+      }
+
+      // Desktop fallback: save PDF locally then open WhatsApp with pre-filled text
+      doc.save(filename);
       const phone = (customer.phone || "").replace(/\D/g, "");
       const waUrl = phone
         ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
@@ -570,6 +580,7 @@ export default function CustomerDetailPage() {
       setTimeout(() => window.open(waUrl, "_blank"), 500);
       toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
     } catch (err) {
+      if ((err as { name?: string }).name === "AbortError") return;
       console.error(err);
       toast({ title: "Could not generate PDF", variant: "destructive" });
     }

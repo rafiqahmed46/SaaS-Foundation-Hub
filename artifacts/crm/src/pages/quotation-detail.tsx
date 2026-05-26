@@ -275,24 +275,38 @@ export default function QuotationDetailPage() {
   async function handleWhatsAppQuotation() {
     try {
       const doc = await buildQuotationPDF();
-      doc.save(`${quotation!.quoteNumber}.pdf`);
+      const filename = `${quotation!.quoteNumber}.pdf`;
       const sym = getCurrencySymbol(quotation!.currency || settings?.currency || "AED");
       const msg = [
-        `*QUOTATION*`,
+        `*QUOTATION – ${quotation!.quoteNumber}*`,
         `*${settings?.companyName || ""}*`,
         settings?.trn ? `TRN: ${settings.trn}` : "",
         ``,
         `*Prepared For:* ${quotation!.customerName}`,
-        `*Quote No:* ${quotation!.quoteNumber}`,
         quotation!.validUntil ? `*Valid Until:* ${fmtDate(quotation!.validUntil)}` : "",
         `*Amount:* ${sym} ${quotation!.total.toFixed(2)}`,
         `*Status:* ${quotation!.status.toUpperCase()}`,
-        ``,
-        `_PDF saved to your device — please attach it to this chat._`,
       ].filter(Boolean).join("\n");
+
+      // Mobile: native share sheet sends the actual PDF file to WhatsApp
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        const blob = doc.output("blob");
+        const file = new File([blob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename, text: msg });
+          return;
+        }
+      }
+
+      // Desktop fallback: save PDF locally then open WhatsApp with pre-filled text
+      doc.save(filename);
       setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
       toast({ title: "PDF saved — WhatsApp opening", description: "Attach the downloaded PDF in the chat." });
-    } catch (err) { console.error(err); toast({ title: "Could not generate PDF", variant: "destructive" }); }
+    } catch (err) {
+      if ((err as { name?: string }).name === "AbortError") return;
+      console.error(err);
+      toast({ title: "Could not generate PDF", variant: "destructive" });
+    }
   }
 
   const currency = quotation?.currency || settings?.currency || "AED";
