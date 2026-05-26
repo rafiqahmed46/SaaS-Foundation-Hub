@@ -16,6 +16,10 @@ function byCreatedAtDesc<T extends { createdAt: string }>(a: T, b: T) {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
+function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+}
+
 // ── Customer ────────────────────────────────────────────────────────────────
 
 export interface Customer {
@@ -124,7 +128,7 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
 }
 
 export async function addInvoice(data: Omit<Invoice, "id" | "createdAt">) {
-  return addDoc(collection(db, "invoices"), { ...data, createdAt: new Date().toISOString() });
+  return addDoc(collection(db, "invoices"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
 }
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
@@ -172,7 +176,7 @@ export async function getQuotation(id: string): Promise<Quotation | null> {
 }
 
 export async function addQuotation(data: Omit<Quotation, "id" | "createdAt">) {
-  return addDoc(collection(db, "quotations"), { ...data, createdAt: new Date().toISOString() });
+  return addDoc(collection(db, "quotations"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
 }
 
 export async function updateQuotation(id: string, data: Partial<Quotation>) {
