@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -84,6 +85,7 @@ export default function DashboardPage() {
           color: "text-blue-600",
           bg: "bg-blue-50",
           description: "All registered customers",
+          href: "/customers",
         },
         {
           title: "Total Invoices",
@@ -92,6 +94,7 @@ export default function DashboardPage() {
           color: "text-violet-600",
           bg: "bg-violet-50",
           description: `${summary.paidInvoices} paid`,
+          href: "/invoices",
         },
         {
           title: "Pending Services",
@@ -100,6 +103,7 @@ export default function DashboardPage() {
           color: "text-amber-600",
           bg: "bg-amber-50",
           description: "Awaiting payment",
+          href: "/invoices",
         },
         {
           title: "Total Revenue",
@@ -108,6 +112,7 @@ export default function DashboardPage() {
           color: "text-green-600",
           bg: "bg-green-50",
           description: "From paid invoices",
+          href: "/invoices",
         },
         {
           title: "Pending Revenue",
@@ -116,6 +121,7 @@ export default function DashboardPage() {
           color: "text-orange-600",
           bg: "bg-orange-50",
           description: "Invoices outstanding",
+          href: "/invoices",
         },
         {
           title: "Overdue Risk",
@@ -124,6 +130,7 @@ export default function DashboardPage() {
           color: summary.pendingInvoices > 0 ? "text-red-600" : "text-green-600",
           bg: summary.pendingInvoices > 0 ? "bg-red-50" : "bg-green-50",
           description: summary.pendingInvoices > 0 ? "Follow up needed" : "All up to date",
+          href: "/invoices",
         },
       ]
     : [];
@@ -152,22 +159,24 @@ export default function DashboardPage() {
                 </Card>
               ))
             : cards.map((card) => (
-                <Card key={card.title} className="hover:shadow-md transition-shadow" data-testid={`card-${card.title.toLowerCase().replace(/\s+/g, "-")}`}>
-                  <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {card.title}
-                    </CardTitle>
-                    <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center`}>
-                      <card.icon className={`w-5 h-5 ${card.color}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold tracking-tight" data-testid={`value-${card.title.toLowerCase().replace(/\s+/g, "-")}`}>
-                      {card.value}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
-                  </CardContent>
-                </Card>
+                <Link key={card.title} href={card.href}>
+                  <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" data-testid={`card-${card.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        {card.title}
+                      </CardTitle>
+                      <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center`}>
+                        <card.icon className={`w-5 h-5 ${card.color}`} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold tracking-tight" data-testid={`value-${card.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        {card.value}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
         </div>
 
