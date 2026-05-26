@@ -19,6 +19,7 @@ import QuotationDetailPage from "@/pages/quotation-detail";
 import InvoiceEditPage from "@/pages/invoice-edit";
 import QuotationEditPage from "@/pages/quotation-edit";
 import TasksPage from "@/pages/tasks";
+import FinancePage from "@/pages/finance";
 import SettingsPage from "@/pages/settings";
 import ImportPage from "@/pages/import";
 
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/quotations/:id" component={() => <ProtectedRoute component={QuotationDetailPage} />} />
       <Route path="/quotations" component={() => <ProtectedRoute component={QuotationsPage} />} />
       <Route path="/tasks" component={() => <ProtectedRoute component={TasksPage} />} />
+      <Route path="/finance" component={() => <ProtectedRoute component={FinancePage} />} />
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route component={NotFound} />

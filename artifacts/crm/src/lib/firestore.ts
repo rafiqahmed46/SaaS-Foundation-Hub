@@ -228,6 +228,43 @@ export async function deleteTask(id: string) {
   return deleteDoc(doc(db, "tasks", id));
 }
 
+// ── Transaction (Income / Expense) ────────────────────────────────────────────
+
+export const INCOME_CATEGORIES = ["Service", "AMC", "Sales", "Rental", "Consultation", "Commission", "Other"] as const;
+export const EXPENSE_CATEGORIES = ["Stock", "Fuel", "Salary", "Commission", "Rent", "Utilities", "Maintenance", "Marketing", "Other"] as const;
+
+export interface Transaction {
+  id: string;
+  companyId: string;
+  type: "income" | "expense";
+  category: string;
+  amount: number;
+  date: string;        // YYYY-MM-DD
+  description: string;
+  reference?: string;
+  createdAt: string;
+}
+
+export async function getTransactions(companyId: string): Promise<Transaction[]> {
+  const q = query(collection(db, "transactions"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Transaction))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function addTransaction(data: Omit<Transaction, "id" | "createdAt">) {
+  return addDoc(collection(db, "transactions"), { ...data, createdAt: new Date().toISOString() });
+}
+
+export async function updateTransaction(id: string, data: Partial<Transaction>) {
+  return updateDoc(doc(db, "transactions", id), stripUndefined(data as Record<string, unknown>));
+}
+
+export async function deleteTransaction(id: string) {
+  return deleteDoc(doc(db, "transactions", id));
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface Settings {

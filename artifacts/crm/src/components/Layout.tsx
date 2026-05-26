@@ -15,6 +15,7 @@ import {
   CheckSquare,
   RefreshCw,
   Upload,
+  Wallet,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/quotations", label: "Quotations", icon: ClipboardList },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/import", label: "Import Data", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
