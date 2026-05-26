@@ -26,6 +26,8 @@ export interface Customer {
   phone?: string;
   address?: string;
   notes?: string;
+  lat?: number;
+  lng?: number;
   createdAt: string;
 }
 

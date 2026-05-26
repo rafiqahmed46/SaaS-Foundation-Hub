@@ -7,6 +7,7 @@ import {
   getCustomerVisits, addCustomerVisit,
   Customer, Invoice, Quotation, Settings, CustomerVisit, getSettings,
 } from "@/lib/firestore";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Mail, FileText,
-  FileCheck, Pencil, TrendingUp, Receipt, ClipboardList,
+  FileCheck, Pencil, TrendingUp, Receipt, ClipboardList, Navigation,
 } from "lucide-react";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 import CustomerMap from "@/components/CustomerMap";
@@ -88,6 +89,21 @@ export default function CustomerDetailPage() {
     }
     load();
   }, [id, user?.companyId]);
+
+  async function handleSaveLocation(lat: number, lng: number) {
+    if (!id) return;
+    try {
+      await updateCustomer(id, { lat, lng });
+      setCustomer((prev) => prev ? { ...prev, lat, lng } : prev);
+      toast({ title: "Location saved!", description: "GPS coordinates pinned to this customer's profile." });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied") {
+        throw err; // Let CustomerMap handle the error display
+      }
+      throw err;
+    }
+  }
 
   async function handleCheckIn(lat: number, lng: number) {
     if (!id) return;
@@ -265,8 +281,23 @@ export default function CustomerDetailPage() {
                 </div>
               )}
             </div>
-            {customer.phone && (
-              <div className="flex gap-2 mt-4 pt-4 border-t">
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+              {/* Navigate — uses saved GPS or address */}
+              {(customer.lat != null || customer.address) && (() => {
+                const navUrl = customer.lat != null
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${customer.lat},${customer.lng}&travelmode=driving`
+                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address!)}&travelmode=driving`;
+                return (
+                  <a
+                    href={navUrl}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <Navigation className="w-3.5 h-3.5" /> Navigate
+                  </a>
+                );
+              })()}
+              {customer.phone && (
                 <a
                   href={`https://wa.me/${customer.phone.replace(/\D/g, "")}`}
                   target="_blank" rel="noopener noreferrer"
@@ -274,14 +305,16 @@ export default function CustomerDetailPage() {
                 >
                   <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                 </a>
+              )}
+              {customer.phone && (
                 <a
                   href={`tel:${customer.phone}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
                 >
                   <Phone className="w-3.5 h-3.5" /> Call
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -320,8 +353,11 @@ export default function CustomerDetailPage() {
             <CustomerMap
               customerId={id!}
               address={customer.address}
+              savedLat={customer.lat}
+              savedLng={customer.lng}
               visits={visits}
               onCheckIn={handleCheckIn}
+              onSaveLocation={handleSaveLocation}
             />
           </CardContent>
         </Card>
