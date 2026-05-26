@@ -8,10 +8,13 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   setDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
+
+function byCreatedAtDesc<T extends { createdAt: string }>(a: T, b: T) {
+  return b.createdAt.localeCompare(a.createdAt);
+}
 
 // ── Customer ────────────────────────────────────────────────────────────────
 
@@ -27,13 +30,9 @@ export interface Customer {
 }
 
 export async function getCustomers(companyId: string): Promise<Customer[]> {
-  const q = query(
-    collection(db, "customers"),
-    where("companyId", "==", companyId),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "customers"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Customer));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Customer)).sort(byCreatedAtDesc);
 }
 
 export async function addCustomer(data: Omit<Customer, "id" | "createdAt">) {
@@ -82,13 +81,9 @@ export interface Invoice {
 }
 
 export async function getInvoices(companyId: string): Promise<Invoice[]> {
-  const q = query(
-    collection(db, "invoices"),
-    where("companyId", "==", companyId),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "invoices"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Invoice));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Invoice)).sort(byCreatedAtDesc);
 }
 
 export async function getInvoice(id: string): Promise<Invoice | null> {
@@ -137,13 +132,9 @@ export interface Quotation {
 }
 
 export async function getQuotations(companyId: string): Promise<Quotation[]> {
-  const q = query(
-    collection(db, "quotations"),
-    where("companyId", "==", companyId),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "quotations"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Quotation));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Quotation)).sort(byCreatedAtDesc);
 }
 
 export async function getQuotation(id: string): Promise<Quotation | null> {
@@ -190,13 +181,9 @@ export interface Task {
 }
 
 export async function getTasks(companyId: string): Promise<Task[]> {
-  const q = query(
-    collection(db, "tasks"),
-    where("companyId", "==", companyId),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "tasks"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Task));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Task)).sort(byCreatedAtDesc);
 }
 
 export async function addTask(data: Omit<Task, "id" | "createdAt">) {
