@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Eye, ClipboardList } from "lucide-react";
+import { Plus, Search, Trash2, Eye, ClipboardList, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCurrencySymbol } from "@/lib/utils-crm";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -17,10 +18,6 @@ const STATUS_STYLES: Record<string, string> = {
   accepted: "bg-green-100 text-green-700",
   declined: "bg-red-100 text-red-700",
   expired: "bg-amber-100 text-amber-700",
-};
-
-const CURRENCIES: Record<string, string> = {
-  USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$", AUD: "A$", INR: "₹", BRL: "R$",
 };
 
 export default function QuotationsPage() {
@@ -124,12 +121,15 @@ export default function QuotationsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold">
-                        {CURRENCIES[q.items?.[0] ? "USD" : "USD"] || "$"}{q.total.toFixed(2)}
+                        {getCurrencySymbol(q.currency || "AED")}{q.total.toFixed(2)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => navigate(`/quotations/${q.id}`)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="View">
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); navigate(`/quotations/${q.id}/edit`); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Edit">
+                            <Pencil className="w-4 h-4" />
                           </button>
                           <button onClick={() => setDeleteId(q.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete">
                             <Trash2 className="w-4 h-4" />

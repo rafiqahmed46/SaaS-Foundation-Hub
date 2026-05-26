@@ -16,6 +16,8 @@ import InvoiceDetailPage from "@/pages/invoice-detail";
 import QuotationsPage from "@/pages/quotations";
 import QuotationNewPage from "@/pages/quotation-new";
 import QuotationDetailPage from "@/pages/quotation-detail";
+import InvoiceEditPage from "@/pages/invoice-edit";
+import QuotationEditPage from "@/pages/quotation-edit";
 import TasksPage from "@/pages/tasks";
 import SettingsPage from "@/pages/settings";
 
@@ -57,9 +59,11 @@ function Router() {
       <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetailPage} />} />
       <Route path="/customers" component={() => <ProtectedRoute component={CustomersPage} />} />
       <Route path="/invoices/new" component={() => <ProtectedRoute component={InvoiceNewPage} />} />
+      <Route path="/invoices/:id/edit" component={() => <ProtectedRoute component={InvoiceEditPage} />} />
       <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetailPage} />} />
       <Route path="/invoices" component={() => <ProtectedRoute component={InvoicesPage} />} />
       <Route path="/quotations/new" component={() => <ProtectedRoute component={QuotationNewPage} />} />
+      <Route path="/quotations/:id/edit" component={() => <ProtectedRoute component={QuotationEditPage} />} />
       <Route path="/quotations/:id" component={() => <ProtectedRoute component={QuotationDetailPage} />} />
       <Route path="/quotations" component={() => <ProtectedRoute component={QuotationsPage} />} />
       <Route path="/tasks" component={() => <ProtectedRoute component={TasksPage} />} />

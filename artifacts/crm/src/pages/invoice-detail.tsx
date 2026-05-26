@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, Receipt, Palette } from "lucide-react";
+import { ArrowLeft, Download, Building2, Receipt, Palette, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -484,6 +484,10 @@ export default function InvoiceDetailPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => navigate(`/invoices/${id}/edit`)} className="gap-2">
+              <Pencil className="w-4 h-4" />
+              Edit
+            </Button>
             <Button variant="outline" onClick={handleDownloadReceipt} className="gap-2" data-testid="button-download-receipt">
               <Receipt className="w-4 h-4" />
               Receipt Voucher

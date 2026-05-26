@@ -159,7 +159,7 @@ export default function InvoicesPage() {
                         {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(inv.total, currency)}
+                        {formatCurrency(inv.total, inv.currency || currency)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>

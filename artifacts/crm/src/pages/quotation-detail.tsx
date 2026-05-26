@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, FileCheck, ArrowRightLeft } from "lucide-react";
+import { ArrowLeft, Download, Building2, FileCheck, ArrowRightLeft, Pencil } from "lucide-react";
 import { CURRENCIES, getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -307,6 +307,10 @@ export default function QuotationDetailPage() {
                 <SelectItem value="expired">Expired</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => navigate(`/quotations/${quotation.id}/edit`)} className="gap-2">
+              <Pencil className="w-4 h-4" />
+              Edit
+            </Button>
             <Button
               variant="outline"
               onClick={() => setConfirmOpen(true)}
