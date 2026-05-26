@@ -99,7 +99,7 @@ export default function CustomersPage() {
       if (editCustomer) {
         await updateCustomer(editCustomer.id, {
           name: form.name.trim(), email: form.email.trim(),
-          phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
+          phone: form.phone.trim(), address: form.address.trim(), notes: form.notes.trim(),
         });
         toast({ title: "Customer updated" });
       } else {

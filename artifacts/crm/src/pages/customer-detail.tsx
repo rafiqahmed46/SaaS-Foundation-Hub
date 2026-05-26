@@ -175,9 +175,9 @@ export default function CustomerDetailPage() {
       await updateCustomer(customer.id, {
         name: form.name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        address: form.address.trim() || undefined,
-        notes: form.notes.trim() || undefined,
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        notes: form.notes.trim(),
       });
       setCustomer((prev) =>
         prev
