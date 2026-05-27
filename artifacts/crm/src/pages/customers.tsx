@@ -28,7 +28,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink, X } from "lucide-react";
+import { ArrowUpDown, Plus, Search, Pencil, Trash2, MapPin, Users, ExternalLink, X } from "lucide-react";
+import PhoneActionButtons from "@/components/PhoneActionButtons";
 
 type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
 
@@ -278,29 +279,7 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground max-w-xs truncate">{c.address || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {getCustomerPhones(c).slice(0, 1).map((ph) => (
-                            <>
-                              <a
-                                key={`wa-${ph}`}
-                                href={`https://wa.me/${ph.replace(/\D/g, "")}`}
-                                target="_blank" rel="noopener noreferrer"
-                                title={`WhatsApp ${ph}`}
-                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
-                                data-testid={`button-whatsapp-${c.id}`}
-                              >
-                                <MessageCircle className="w-4 h-4" />
-                              </a>
-                              <a
-                                key={`call-${ph}`}
-                                href={`tel:${ph}`}
-                                title={`Call ${ph}`}
-                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-                                data-testid={`button-call-${c.id}`}
-                              >
-                                <Phone className="w-4 h-4" />
-                              </a>
-                            </>
-                          ))}
+                          <PhoneActionButtons phones={getCustomerPhones(c)} variant="icon" />
                           {c.address && (
                             <a
                               href={mapsUrl(c.address)}

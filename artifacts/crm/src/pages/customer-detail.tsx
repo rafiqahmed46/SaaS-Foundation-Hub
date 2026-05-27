@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
 import CustomerMap from "@/components/CustomerMap";
+import PhoneActionButtons from "@/components/PhoneActionButtons";
 
 // ── Status pill colours ──────────────────────────────────────────────────────
 
@@ -707,25 +708,7 @@ export default function CustomerDetailPage() {
                   </a>
                 );
               })()}
-              {getCustomerPhones(customer).map((ph, i) => (
-                <span key={i} className="flex items-center gap-1">
-                  <a
-                    href={`https://wa.me/${ph.replace(/\D/g, "")}`}
-                    target="_blank" rel="noopener noreferrer"
-                    title={`WhatsApp ${ph}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" /> {i === 0 ? "WhatsApp" : ph}
-                  </a>
-                  <a
-                    href={`tel:${ph}`}
-                    title={`Call ${ph}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5" /> {i === 0 ? "Call" : ""}
-                  </a>
-                </span>
-              ))}
+              <PhoneActionButtons phones={getCustomerPhones(customer)} variant="label" />
             </div>
           </CardContent>
         </Card>
