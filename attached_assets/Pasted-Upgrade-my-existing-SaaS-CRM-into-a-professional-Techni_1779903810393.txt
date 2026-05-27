@@ -1,0 +1,123 @@
+Upgrade my existing SaaS CRM into a professional Technician & Field Service Management system without breaking current modules or data.
+
+IMPORTANT:
+
+* Keep existing authentication, workspace/company isolation, customers, invoices, quotations, finance, and tasks working
+* Maintain responsive modern SaaS UI
+* Ensure production-ready scalable architecture
+* Fix all TypeScript/build errors automatically after implementation
+
+Create a new “Technicians” module with:
+
+* Name
+* Photo
+* Phone
+* WhatsApp
+* Email/login
+* Password
+* Status (active/inactive)
+* Role
+* Assigned area
+* Notes
+* Skills/specialization
+
+Features:
+
+* Add/edit/delete technicians
+* Technician profiles
+* Search/filter technicians
+* Technician activity history
+* Assigned/completed task stats
+
+Create full Role & Permission system:
+Roles:
+
+* Admin
+* Manager
+* Technician
+* Viewer
+
+Admin can enable/disable access to:
+
+* Dashboard
+* Customers
+* Quotations
+* Invoices
+* Finance
+* Tasks
+* Technicians
+* Settings
+* Reports
+
+Technicians should ONLY see:
+
+* Their assigned customers
+* Their assigned tasks/jobs
+* Route/map
+* Their own profile
+
+Enhance task system into service job system:
+Add:
+
+* Assigned technician
+* Priority
+* Scheduled date/time
+* Customer location
+* Service notes
+* Attachments/photos
+* Job status
+
+Statuses:
+
+* Pending
+* Assigned
+* In Progress
+* Completed
+* Cancelled
+
+Add technician mobile dashboard:
+
+* Today’s jobs
+* Start/complete task
+* Upload photos
+* Call customer
+* WhatsApp customer
+* Open map/navigation
+* Update status
+
+Add map & routing system:
+
+* Customer map pin
+* Google Maps/OpenStreetMap integration
+* Route navigation
+* Distance & travel time
+* Directions button
+
+Add notifications:
+
+* Task assigned
+* Task completed
+* Follow-up reminder
+
+Add reports:
+
+* Jobs completed
+* Pending jobs
+* Technician performance
+* Revenue by technician
+
+Ensure:
+
+* Proper database structure
+* Secure permissions
+* Workspace/company data isolation
+* Responsive mobile UI
+* Fast loading
+* No broken existing features
+
+Finally:
+
+* Run typecheck
+* Fix all errors
+* Verify permissions and routing
+* Ensure app compiles successfully

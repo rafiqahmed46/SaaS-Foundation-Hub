@@ -9,6 +9,7 @@ export interface AppUser {
   displayName: string | null;
   companyId: string | null;
   role: string | null;
+  technicianId?: string | null;
 }
 
 interface AuthContextType {
@@ -36,7 +37,7 @@ async function fetchUserData(uid: string, email: string | null, displayName: str
   }
   const data = userDoc.data();
   return {
-    user: { uid, email, displayName: data.displayName ?? displayName ?? null, companyId: data.companyId ?? null, role: data.role ?? null },
+    user: { uid, email, displayName: data.displayName ?? displayName ?? null, companyId: data.companyId ?? null, role: data.role ?? null, technicianId: data.technicianId ?? null },
     needsSetup: false,
   };
 }

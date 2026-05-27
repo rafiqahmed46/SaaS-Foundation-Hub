@@ -23,6 +23,8 @@ import FinancePage from "@/pages/finance";
 import FinanceDetailPage from "@/pages/finance-detail";
 import SettingsPage from "@/pages/settings";
 import ImportPage from "@/pages/import";
+import TechniciansPage from "@/pages/technicians";
+import TechnicianDetailPage from "@/pages/technician-detail";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +72,8 @@ function Router() {
       <Route path="/quotations/:id" component={() => <ProtectedRoute component={QuotationDetailPage} />} />
       <Route path="/quotations" component={() => <ProtectedRoute component={QuotationsPage} />} />
       <Route path="/tasks" component={() => <ProtectedRoute component={TasksPage} />} />
+      <Route path="/technicians/:id" component={() => <ProtectedRoute component={TechnicianDetailPage} />} />
+      <Route path="/technicians" component={() => <ProtectedRoute component={TechniciansPage} />} />
       <Route path="/finance/:id" component={() => <ProtectedRoute component={FinanceDetailPage} />} />
       <Route path="/finance" component={() => <ProtectedRoute component={FinancePage} />} />
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />

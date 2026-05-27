@@ -16,26 +16,30 @@ import {
   RefreshCw,
   Upload,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ModuleKey } from "@/lib/firestore";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/quotations", label: "Quotations", icon: ClipboardList },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/finance", label: "Finance", icon: Wallet },
-  { href: "/import", label: "Import Data", icon: Upload },
-  { href: "/settings", label: "Settings", icon: Settings },
+const ALL_NAV = [
+  { href: "/dashboard",    label: "Dashboard",   icon: LayoutDashboard, module: "dashboard"    as ModuleKey },
+  { href: "/customers",    label: "Customers",   icon: Users,           module: "customers"    as ModuleKey },
+  { href: "/invoices",     label: "Invoices",    icon: FileText,        module: "invoices"     as ModuleKey },
+  { href: "/quotations",   label: "Quotations",  icon: ClipboardList,   module: "quotations"   as ModuleKey },
+  { href: "/tasks",        label: "Tasks",       icon: CheckSquare,     module: "tasks"        as ModuleKey },
+  { href: "/technicians",  label: "Technicians", icon: Wrench,          module: "technicians"  as ModuleKey },
+  { href: "/finance",      label: "Finance",     icon: Wallet,          module: "finance"      as ModuleKey },
+  { href: "/import",       label: "Import Data", icon: Upload,          module: null },
+  { href: "/settings",     label: "Settings",    icon: Settings,        module: "settings"     as ModuleKey },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -46,7 +50,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [settingUp, setSettingUp] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const { user, firestoreError, needsSetup, refreshUser, completeSetup } = useAuth();
+  const { canAccess } = usePermissions();
   const { toast } = useToast();
+  const navItems = ALL_NAV.filter((item) => item.module === null || canAccess(item.module));
 
   async function handleLogout() {
     try {

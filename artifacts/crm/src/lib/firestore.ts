@@ -211,6 +211,8 @@ export interface Task {
   description?: string;
   customerId?: string;
   customerName?: string;
+  assignedTo?: string;
+  assignedToName?: string;
   status: "todo" | "in-progress" | "done";
   priority: "low" | "medium" | "high";
   dueDate?: string;
@@ -233,6 +235,45 @@ export async function updateTask(id: string, data: Partial<Task>) {
 
 export async function deleteTask(id: string) {
   return deleteDoc(doc(db, "tasks", id));
+}
+
+// ── Technician ────────────────────────────────────────────────────────────────
+
+export interface Technician {
+  id: string;
+  companyId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  specialization?: string;
+  status: "active" | "inactive";
+  notes?: string;
+  userId?: string;
+  createdAt: string;
+}
+
+export async function getTechnicians(companyId: string): Promise<Technician[]> {
+  const q = query(collection(db, "technicians"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Technician)).sort(byCreatedAtDesc);
+}
+
+export async function getTechnician(id: string): Promise<Technician | null> {
+  const snap = await getDoc(doc(db, "technicians", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Technician;
+}
+
+export async function addTechnician(data: Omit<Technician, "id" | "createdAt">) {
+  return addDoc(collection(db, "technicians"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+}
+
+export async function updateTechnician(id: string, data: Partial<Technician>) {
+  return updateDoc(doc(db, "technicians", id), stripUndefined(data as Record<string, unknown>));
+}
+
+export async function deleteTechnician(id: string) {
+  return deleteDoc(doc(db, "technicians", id));
 }
 
 // ── Transaction (Income / Expense) ────────────────────────────────────────────
@@ -306,6 +347,19 @@ export async function deleteTransaction(id: string) {
   return deleteDoc(doc(db, "transactions", id));
 }
 
+// ── Roles & Permissions ───────────────────────────────────────────────────────
+
+export type ModuleKey = "dashboard" | "customers" | "quotations" | "invoices" | "finance" | "tasks" | "technicians" | "settings";
+export type RoleKey = "admin" | "manager" | "technician" | "viewer";
+export type RolePermissions = Record<RoleKey, Record<ModuleKey, boolean>>;
+
+export const DEFAULT_PERMISSIONS: RolePermissions = {
+  admin:      { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: true  },
+  manager:    { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: false },
+  technician: { dashboard: false, customers: true,  quotations: false, invoices: false, finance: false, tasks: true,  technicians: false, settings: false },
+  viewer:     { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: false, tasks: false, technicians: false, settings: false },
+};
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface Settings {
@@ -331,6 +385,7 @@ export interface Settings {
   invoiceFooter?: string;
   incomeCategories?: string[];
   expenseCategories?: string[];
+  rolePermissions?: RolePermissions;
 }
 
 export async function getSettings(companyId: string): Promise<Settings | null> {

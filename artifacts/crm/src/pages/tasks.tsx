@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTasks, addTask, updateTask, deleteTask, getCustomers, Task, Customer } from "@/lib/firestore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { getTasks, addTask, updateTask, deleteTask, getCustomers, getTechnicians, Task, Customer, Technician } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User } from "lucide-react";
+import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
@@ -33,18 +34,21 @@ type FormData = {
   title: string;
   description: string;
   customerId: string;
+  assignedTo: string;
   status: Task["status"];
   priority: Task["priority"];
   dueDate: string;
 };
 
-const emptyForm: FormData = { title: "", description: "", customerId: "", status: "todo", priority: "medium", dueDate: "" };
+const emptyForm: FormData = { title: "", description: "", customerId: "", assignedTo: "", status: "todo", priority: "medium", dueDate: "" };
 
 export default function TasksPage() {
   const { user } = useAuth();
+  const { isTechnician } = usePermissions();
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | Task["status"]>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,9 +59,11 @@ export default function TasksPage() {
 
   async function load() {
     if (!user?.companyId) return;
-    const [t, c] = await Promise.all([getTasks(user.companyId), getCustomers(user.companyId)]);
-    setTasks(t);
+    const [t, c, techs] = await Promise.all([getTasks(user.companyId), getCustomers(user.companyId), getTechnicians(user.companyId)]);
+    const visibleTasks = isTechnician && user.technicianId ? t.filter((task) => task.assignedTo === user.technicianId) : t;
+    setTasks(visibleTasks);
     setCustomers(c);
+    setTechnicians(techs);
     setLoading(false);
   }
 
@@ -71,7 +77,7 @@ export default function TasksPage() {
 
   function openEdit(t: Task) {
     setEditTask(t);
-    setForm({ title: t.title, description: t.description || "", customerId: t.customerId || "", status: t.status, priority: t.priority, dueDate: t.dueDate || "" });
+    setForm({ title: t.title, description: t.description || "", customerId: t.customerId || "", assignedTo: t.assignedTo || "", status: t.status, priority: t.priority, dueDate: t.dueDate || "" });
     setDialogOpen(true);
   }
 
@@ -84,12 +90,15 @@ export default function TasksPage() {
     setSaving(true);
     try {
       const selectedCustomer = customers.find((c) => c.id === form.customerId);
+      const selectedTech = technicians.find((t) => t.id === form.assignedTo);
       const payload: Omit<Task, "id" | "createdAt"> = {
         companyId: user.companyId,
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         customerId: form.customerId || undefined,
         customerName: selectedCustomer?.name,
+        assignedTo: form.assignedTo || undefined,
+        assignedToName: selectedTech?.name,
         status: form.status,
         priority: form.priority,
         dueDate: form.dueDate || undefined,
@@ -210,6 +219,9 @@ export default function TasksPage() {
                       {task.customerName && (
                         <span className="flex items-center gap-1"><User className="w-3 h-3" />{task.customerName}</span>
                       )}
+                      {task.assignedToName && (
+                        <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{task.assignedToName}</span>
+                      )}
                       {task.dueDate && (
                         <span className={cn("flex items-center gap-1", overdue && "text-red-600 font-medium")}>
                           {overdue && <AlertTriangle className="w-3 h-3" />}
@@ -285,6 +297,18 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
             </div>
+            {!isTechnician && technicians.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Assign To (optional)</Label>
+                <Select value={form.assignedTo || "none"} onValueChange={(v) => setForm((f) => ({ ...f, assignedTo: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select technician..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {technicians.filter((t) => t.status === "active").map((t) => <SelectItem key={t.id} value={t.id}>{t.name}{t.specialization ? ` — ${t.specialization}` : ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Due Date</Label>
               <Input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} />

@@ -12,7 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X } from "lucide-react";
+import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X, ShieldCheck } from "lucide-react";
+import { DEFAULT_PERMISSIONS, RolePermissions, ModuleKey, RoleKey } from "@/lib/firestore";
 
 const CURRENCIES = [
   { value: "AED", label: "AED — UAE Dirham (AED)" },
@@ -62,6 +63,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState<Partial<Settings>>(DEFAULT_SETTINGS);
+  const [rolePerms, setRolePerms] = useState<RolePermissions>(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -71,6 +73,7 @@ export default function SettingsPage() {
       try {
         const sett = await getSettings(user!.companyId!);
         setSettings(sett || DEFAULT_SETTINGS);
+        if (sett?.rolePermissions) setRolePerms(sett.rolePermissions);
       } finally {
         setLoading(false);
       }
@@ -121,7 +124,7 @@ export default function SettingsPage() {
     }
     setSaving(true);
     try {
-      await saveSettings(user.companyId, settings as Settings);
+      await saveSettings(user.companyId, { ...settings, rolePermissions: rolePerms } as Settings);
       toast({ title: "Settings saved" });
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
@@ -340,7 +343,68 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Appearance */}
+          {/* Roles & Permissions */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                <CardTitle className="text-base">Roles & Permissions</CardTitle>
+              </div>
+              <CardDescription>Control which modules each role can access. Owners always have full access.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const roles: { key: RoleKey; label: string }[] = [
+                  { key: "admin",      label: "Admin"      },
+                  { key: "manager",    label: "Manager"    },
+                  { key: "technician", label: "Technician" },
+                  { key: "viewer",     label: "Viewer"     },
+                ];
+                const modules: { key: ModuleKey; label: string }[] = [
+                  { key: "dashboard",   label: "Dashboard"   },
+                  { key: "customers",   label: "Customers"   },
+                  { key: "quotations",  label: "Quotations"  },
+                  { key: "invoices",    label: "Invoices"    },
+                  { key: "finance",     label: "Finance"     },
+                  { key: "tasks",       label: "Tasks"       },
+                  { key: "technicians", label: "Technicians" },
+                  { key: "settings",    label: "Settings"    },
+                ];
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left py-2 pr-4 font-medium text-muted-foreground w-36">Module</th>
+                          {roles.map((r) => <th key={r.key} className="text-center py-2 px-3 font-medium text-muted-foreground">{r.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {modules.map((mod) => (
+                          <tr key={mod.key} className="hover:bg-muted/30 transition-colors">
+                            <td className="py-2.5 pr-4 font-medium">{mod.label}</td>
+                            {roles.map((role) => (
+                              <td key={role.key} className="py-2.5 px-3 text-center">
+                                <Switch
+                                  checked={rolePerms[role.key]?.[mod.key] ?? DEFAULT_PERMISSIONS[role.key][mod.key]}
+                                  onCheckedChange={(v) => setRolePerms((prev) => ({
+                                    ...prev,
+                                    [role.key]: { ...prev[role.key], [mod.key]: v },
+                                  }))}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Regional */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">

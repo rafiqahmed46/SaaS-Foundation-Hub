@@ -1,0 +1,303 @@
+Build a complete professional Technician Management & Field Service System inside my existing SaaS CRM without breaking current modules.
+
+IMPORTANT:
+
+* Keep existing CRM architecture intact
+* Do not remove or modify current customer, invoice, quotation, finance, or task systems unless required for integration
+* Maintain responsive mobile-first UI
+* Maintain current authentication and workspace isolation
+* Every company/workspace must only see its own technicians and data
+* Follow production-grade SaaS architecture
+* Add clean database schema and scalable structure
+* Add proper loading states, validation, permissions, and error handling
+
+====================================
+TECHNICIAN MANAGEMENT SYSTEM
+============================
+
+Create a new sidebar module:
+
+* Technicians
+
+Technician fields:
+
+* Full Name
+* Profile Photo
+* Employee ID
+* Mobile Number
+* WhatsApp Number
+* Email
+* Password/Login Access
+* Role
+* Status (Active / Inactive / Suspended)
+* Department
+* Designation
+* Assigned Area/Region
+* Address
+* Emergency Contact
+* Joining Date
+* Notes
+* Documents upload
+* Skills/Specialization
+* Availability status
+* Last active timestamp
+
+Technician features:
+
+* Add technician
+* Edit technician
+* Delete technician
+* Suspend technician
+* Reset password
+* View technician profile
+* Search technician
+* Filter technician
+* Technician activity history
+* Technician performance stats
+* Assigned jobs count
+* Completed jobs count
+* Pending jobs count
+
+====================================
+ROLE & PERMISSION SYSTEM
+========================
+
+Create a full role-based access control system.
+
+Roles:
+
+* Super Admin
+* Admin
+* Manager
+* Technician
+* Staff/View Only
+
+Admin must be able to create custom roles.
+
+Permission management system:
+Admin can enable/disable access for every module and action.
+
+Permissions should include:
+
+* Dashboard access
+* Customers view/create/edit/delete
+* Quotations access
+* Invoices access
+* Finance access
+* Technician management
+* Task management
+* Reports access
+* Settings access
+* Import/export access
+* Delete permissions
+* Edit permissions
+* Assign task permissions
+* View only permissions
+
+Create a clean permissions UI with toggles and checkboxes.
+
+Technician accounts should ONLY see:
+
+* Their assigned customers
+* Their assigned tasks/jobs
+* Their route/map
+* Their own profile/settings
+
+Technicians must NOT access:
+
+* Finance
+* Company settings
+* Other technicians
+* Other customer data
+* Reports unless permitted
+
+====================================
+FIELD SERVICE / JOB SYSTEM
+==========================
+
+Enhance existing task system into a professional service job system.
+
+Task/job fields:
+
+* Customer
+* Service Type
+* Priority
+* Status
+* Technician Assigned
+* Scheduled Date
+* Scheduled Time
+* Estimated Duration
+* Customer Location
+* Notes
+* Internal Notes
+* Attachments/Photos
+* Before Service Photos
+* After Service Photos
+* Signature field
+* Completion timestamp
+
+Statuses:
+
+* Pending
+* Assigned
+* In Progress
+* On Hold
+* Completed
+* Cancelled
+* Follow Up Required
+
+Features:
+
+* Drag-and-drop assignment
+* Reassign technician
+* Bulk assignment
+* Technician schedule calendar
+* Daily task board
+* Weekly planning view
+* Service history timeline
+
+====================================
+MAPS & ROUTING SYSTEM
+=====================
+
+Add professional technician route system.
+
+Features:
+
+* Customer locations on map
+* Technician live route view
+* Open navigation button
+* Google Maps integration
+* OpenStreetMap fallback
+* Distance calculation
+* Estimated travel time
+* Route optimization
+* Technician current location
+* Customer location history
+
+Customer profile should include:
+
+* Exact location pin
+* Map preview
+* Directions button
+
+Technician mobile dashboard should show:
+
+* Today's route
+* Next customer
+* Navigation shortcut
+* Distance remaining
+
+====================================
+MOBILE TECHNICIAN DASHBOARD
+===========================
+
+Create fully responsive technician mobile interface.
+
+Technician mobile dashboard:
+
+* Today's assigned jobs
+* Start job button
+* Complete job button
+* Upload photos
+* Call customer button
+* WhatsApp customer button
+* Open map button
+* Update job status
+* Add service notes
+* Customer signature collection
+* Offline-friendly UI
+
+====================================
+NOTIFICATIONS SYSTEM
+====================
+
+Add notifications:
+
+* New task assigned
+* Task rescheduled
+* Job completed
+* Technician late warning
+* Customer follow-up reminder
+
+Channels:
+
+* In-app notifications
+* Email notifications
+* WhatsApp-ready structure for future integration
+
+====================================
+REPORTING & ANALYTICS
+=====================
+
+Add technician reports:
+
+* Jobs completed
+* Average completion time
+* Revenue by technician
+* Pending services
+* Performance leaderboard
+* Attendance/activity tracking
+* Monthly reports
+
+====================================
+DATABASE & SECURITY
+===================
+
+IMPORTANT:
+
+* Use scalable database schema
+* Add indexes where necessary
+* Maintain workspace/company isolation
+* Protect all APIs and routes
+* Prevent unauthorized access
+* Validate all inputs
+* Prevent direct URL access bypass
+
+====================================
+UI/UX REQUIREMENTS
+==================
+
+Design must look:
+
+* Modern SaaS style
+* Clean cards and tables
+* Professional service management dashboard
+* Mobile responsive
+* Fast loading
+* Consistent with existing CRM design
+
+Add:
+
+* Empty states
+* Skeleton loaders
+* Toast notifications
+* Confirmation dialogs
+* Status badges
+* Search and filters
+* Pagination
+
+====================================
+FINAL REQUIREMENTS
+==================
+
+* Do NOT break existing CRM
+* Keep all existing data safe
+* Maintain current authentication
+* Generate production-ready code
+* Generate reusable components
+* Follow best practices
+* Add comments for maintainability
+* Ensure build compiles without TypeScript errors
+* Ensure all pages and permissions work correctly
+* Ensure responsive design works on mobile and desktop
+
+After implementation:
+
+* Run typecheck
+* Fix all errors
+* Verify permissions
+* Verify routing
+* Verify technician isolation
+* Verify mobile responsiveness
+* Verify maps functionality
