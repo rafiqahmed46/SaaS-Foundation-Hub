@@ -36,7 +36,9 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist"),
+    // Output to the repo root's dist/ so Vercel finds it regardless of
+    // whether Root Directory is set to the repo root or artifacts/crm.
+    outDir: path.resolve(import.meta.dirname, "../../dist"),
     emptyOutDir: true,
   },
   server: {
