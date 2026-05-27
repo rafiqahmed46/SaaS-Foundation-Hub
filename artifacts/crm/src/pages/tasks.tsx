@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User, Wrench } from "lucide-react";
+import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User, Wrench, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
@@ -119,6 +119,20 @@ export default function TasksPage() {
     }
   }
 
+  async function handleAssignTech(task: Task, techId: string) {
+    const tech = technicians.find((t) => t.id === techId);
+    const update = techId === "unassigned"
+      ? { assignedTo: undefined, assignedToName: undefined }
+      : { assignedTo: techId, assignedToName: tech?.name };
+    try {
+      await updateTask(task.id, update);
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, ...update } : t));
+      toast({ title: techId === "unassigned" ? "Task unassigned" : `Assigned to ${tech?.name}` });
+    } catch {
+      toast({ title: "Error updating assignment", variant: "destructive" });
+    }
+  }
+
   async function handleStatusToggle(task: Task) {
     const next: Task["status"] = task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "done" : "todo";
     try {
@@ -215,15 +229,12 @@ export default function TasksPage() {
                       </div>
                     </div>
                     {task.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       {task.customerName && (
-                        <span className="flex items-center gap-1"><User className="w-3 h-3" />{task.customerName}</span>
-                      )}
-                      {task.assignedToName && (
-                        <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{task.assignedToName}</span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><User className="w-3 h-3" />{task.customerName}</span>
                       )}
                       {task.dueDate && (
-                        <span className={cn("flex items-center gap-1", overdue && "text-red-600 font-medium")}>
+                        <span className={cn("flex items-center gap-1 text-xs", overdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
                           {overdue && <AlertTriangle className="w-3 h-3" />}
                           Due {new Date(task.dueDate).toLocaleDateString()}
                         </span>
@@ -231,6 +242,31 @@ export default function TasksPage() {
                       <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_CONFIG[task.status].bg, STATUS_CONFIG[task.status].color)}>
                         {STATUS_CONFIG[task.status].label}
                       </span>
+                      {!isTechnician && technicians.length > 0 && (
+                        <Select
+                          value={task.assignedTo || "unassigned"}
+                          onValueChange={(v) => handleAssignTech(task, v)}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-6 text-xs px-2 gap-1 border rounded-full w-auto min-w-[110px] max-w-[160px]",
+                            task.assignedTo ? "border-primary/40 bg-primary/5 text-primary" : "border-dashed text-muted-foreground"
+                          )}>
+                            <UserCheck className="w-3 h-3 shrink-0" />
+                            <SelectValue placeholder="Assign…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {technicians.filter((t) => t.status === "active").map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}{t.specialization ? ` — ${t.specialization}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {isTechnician && task.assignedToName && (
+                        <span className="flex items-center gap-1 text-xs text-primary"><Wrench className="w-3 h-3" />{task.assignedToName}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
