@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getTransactions, addTransaction, updateTransaction, deleteTransaction,
+  getSettings, saveSettings,
   Transaction, INCOME_CATEGORIES, EXPENSE_CATEGORIES,
 } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Filter, Calendar } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Calendar, X, Check, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
@@ -111,16 +112,53 @@ export default function FinancePage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Custom categories (persisted in settings)
+  const [incomeCategories, setIncomeCategories] = useState<string[]>([...INCOME_CATEGORIES]);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([...EXPENSE_CATEGORIES]);
+  const [addingCat, setAddingCat] = useState<"income" | "expense" | null>(null);
+  const [newCatInput, setNewCatInput] = useState("");
+
   const currency = "AED";
 
   async function load() {
     if (!user?.companyId) return;
-    const data = await getTransactions(user.companyId);
+    const [data, sett] = await Promise.all([
+      getTransactions(user.companyId),
+      getSettings(user.companyId),
+    ]);
     setTransactions(data);
+    if (sett?.incomeCategories?.length) setIncomeCategories(sett.incomeCategories);
+    if (sett?.expenseCategories?.length) setExpenseCategories(sett.expenseCategories);
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [user?.companyId]);
+
+  async function handleAddCategory() {
+    const name = newCatInput.trim();
+    if (!name || !addingCat || !user?.companyId) return;
+    const updated = addingCat === "income"
+      ? [...incomeCategories, name]
+      : [...expenseCategories, name];
+    if (addingCat === "income") setIncomeCategories(updated);
+    else setExpenseCategories(updated);
+    await saveSettings(user.companyId, addingCat === "income" ? { incomeCategories: updated } : { expenseCategories: updated });
+    setNewCatInput("");
+    setAddingCat(null);
+    toast({ title: `Category "${name}" added` });
+  }
+
+  async function handleRemoveCategory(type: "income" | "expense", cat: string) {
+    if (!user?.companyId) return;
+    const updated = type === "income"
+      ? incomeCategories.filter((c) => c !== cat)
+      : expenseCategories.filter((c) => c !== cat);
+    if (type === "income") setIncomeCategories(updated);
+    else setExpenseCategories(updated);
+    if (catFilter === cat) setCatFilter("all");
+    await saveSettings(user.companyId, type === "income" ? { incomeCategories: updated } : { expenseCategories: updated });
+    toast({ title: `Category "${cat}" removed` });
+  }
 
   // ── Filtering ────────────────────────────────────────────────────────────────
 
@@ -160,13 +198,13 @@ export default function FinancePage() {
     });
   }, [transactions]);
 
-  // ── Category list for filter dropdown ────────────────────────────────────────
+  // ── Category list for filter pills ────────────────────────────────────────────
 
   const catOptions = useMemo(() => {
-    if (tab === "income") return ALL_CATEGORIES.income;
-    if (tab === "expense") return ALL_CATEGORIES.expense;
-    return [...ALL_CATEGORIES.income, ...ALL_CATEGORIES.expense.filter((c) => !ALL_CATEGORIES.income.includes(c as never))];
-  }, [tab]);
+    if (tab === "income") return incomeCategories;
+    if (tab === "expense") return expenseCategories;
+    return [...incomeCategories, ...expenseCategories.filter((c) => !incomeCategories.includes(c))];
+  }, [tab, incomeCategories, expenseCategories]);
 
   // ── Dialog helpers ────────────────────────────────────────────────────────────
 
@@ -304,33 +342,134 @@ export default function FinancePage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Type tabs + Category filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-            {(["all", "income", "expense"] as TxType[]).map((t) => (
+        {/* Type tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+          {(["all", "income", "expense"] as TxType[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setCatFilter("all"); setAddingCat(null); }}
+              className={cn("px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
+                tab === t ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t === "all" ? `All (${filtered.length})` : t === "income" ? `Income (${filtered.filter(tx => tx.type === "income").length})` : `Expense (${filtered.filter(tx => tx.type === "expense").length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Category pills */}
+        <div className="space-y-2">
+          {/* Income categories */}
+          {tab !== "expense" && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide mr-1 flex items-center gap-1">
+                <Tag className="w-3 h-3" /> Income
+              </span>
               <button
-                key={t}
-                onClick={() => { setTab(t); setCatFilter("all"); }}
-                className={cn("px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
-                  tab === t ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                onClick={() => setCatFilter("all")}
+                className={cn("px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                  catFilter === "all" ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400 hover:text-foreground"
                 )}
               >
-                {t === "all" ? `All (${filtered.length})` : t === "income" ? `Income (${filtered.filter(tx => tx.type === "income").length})` : `Expense (${filtered.filter(tx => tx.type === "expense").length})`}
+                All
               </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <Select value={catFilter} onValueChange={setCatFilter}>
-              <SelectTrigger className="h-8 w-44 text-xs">
-                <SelectValue placeholder="All categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {catOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+              {incomeCategories.map((cat) => (
+                <span key={cat} className={cn("inline-flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium border transition-colors group/cat",
+                  catFilter === cat ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400 hover:text-foreground"
+                )}>
+                  <button onClick={() => setCatFilter(catFilter === cat ? "all" : cat)} className="leading-none">{cat}</button>
+                  <button
+                    onClick={() => handleRemoveCategory("income", cat)}
+                    className={cn("ml-0.5 p-0.5 rounded-full transition-colors", catFilter === cat ? "hover:bg-emerald-700" : "hover:bg-muted")}
+                    title={`Remove "${cat}"`}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+              {addingCat === "income" ? (
+                <span className="inline-flex items-center gap-1">
+                  <Input
+                    autoFocus
+                    value={newCatInput}
+                    onChange={(e) => setNewCatInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") { setAddingCat(null); setNewCatInput(""); } }}
+                    placeholder="Category name…"
+                    className="h-6 text-xs w-32 px-2"
+                  />
+                  <button onClick={handleAddCategory} className="p-1 rounded-full bg-emerald-600 text-white hover:bg-emerald-700">
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => { setAddingCat(null); setNewCatInput(""); }} className="p-1 rounded-full border hover:bg-muted">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setAddingCat("income"); setNewCatInput(""); }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                >
+                  + Add
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Expense categories */}
+          {tab !== "income" && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-medium text-red-600 uppercase tracking-wide mr-1 flex items-center gap-1">
+                <Tag className="w-3 h-3" /> Expense
+              </span>
+              <button
+                onClick={() => setCatFilter("all")}
+                className={cn("px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                  catFilter === "all" ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground hover:border-red-400 hover:text-foreground"
+                )}
+              >
+                All
+              </button>
+              {expenseCategories.map((cat) => (
+                <span key={cat} className={cn("inline-flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium border transition-colors",
+                  catFilter === cat ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground hover:border-red-400 hover:text-foreground"
+                )}>
+                  <button onClick={() => setCatFilter(catFilter === cat ? "all" : cat)} className="leading-none">{cat}</button>
+                  <button
+                    onClick={() => handleRemoveCategory("expense", cat)}
+                    className={cn("ml-0.5 p-0.5 rounded-full transition-colors", catFilter === cat ? "hover:bg-red-600" : "hover:bg-muted")}
+                    title={`Remove "${cat}"`}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+              {addingCat === "expense" ? (
+                <span className="inline-flex items-center gap-1">
+                  <Input
+                    autoFocus
+                    value={newCatInput}
+                    onChange={(e) => setNewCatInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") { setAddingCat(null); setNewCatInput(""); } }}
+                    placeholder="Category name…"
+                    className="h-6 text-xs w-32 px-2"
+                  />
+                  <button onClick={handleAddCategory} className="p-1 rounded-full bg-red-500 text-white hover:bg-red-600">
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => { setAddingCat(null); setNewCatInput(""); }} className="p-1 rounded-full border hover:bg-muted">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setAddingCat("expense"); setNewCatInput(""); }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-red-300 text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  + Add
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Transaction List */}
@@ -453,7 +592,7 @@ export default function FinancePage() {
                 <Select value={form.category} onValueChange={(v) => setF("category", v)}>
                   <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                   <SelectContent>
-                    {(form.type === "income" ? ALL_CATEGORIES.income : ALL_CATEGORIES.expense).map((c) => (
+                    {(form.type === "income" ? incomeCategories : expenseCategories).map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>

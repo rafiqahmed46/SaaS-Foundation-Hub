@@ -316,6 +316,8 @@ export interface Settings {
   bankIban?: string;
   paymentTerms?: string;
   invoiceFooter?: string;
+  incomeCategories?: string[];
+  expenseCategories?: string[];
 }
 
 export async function getSettings(companyId: string): Promise<Settings | null> {
