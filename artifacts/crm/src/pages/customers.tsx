@@ -27,7 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUpDown, Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink } from "lucide-react";
+
+type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
 
 type FormData = {
   name: string;
@@ -56,6 +59,7 @@ export default function CustomersPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ name?: boolean; email?: boolean }>({});
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
 
   async function loadCustomers() {
     if (!user?.companyId) return;
@@ -136,12 +140,19 @@ export default function CustomersPage() {
     }
   }
 
-  const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
-      (c.phone || "").includes(search)
-  );
+  const filtered = customers
+    .filter(
+      (c) =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.email.toLowerCase().includes(search.toLowerCase()) ||
+        (c.phone || "").includes(search)
+    )
+    .sort((a, b) => {
+      if (sortKey === "name-asc") return a.name.localeCompare(b.name);
+      if (sortKey === "name-desc") return b.name.localeCompare(a.name);
+      if (sortKey === "oldest") return (a.createdAt || "").localeCompare(b.createdAt || "");
+      return (b.createdAt || "").localeCompare(a.createdAt || ""); // newest
+    });
 
   return (
     <Layout>
@@ -159,15 +170,29 @@ export default function CustomersPage() {
           </Button>
         </div>
 
-        <div className="relative mb-5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Search by name, email, or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-customer"
-          />
+        <div className="flex gap-2 mb-5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search by name, email, or phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-customer"
+            />
+          </div>
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <SelectTrigger className="w-40 shrink-0 gap-1.5">
+              <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="name-asc">Name A → Z</SelectItem>
+              <SelectItem value="name-desc">Name Z → A</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
