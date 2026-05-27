@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Calendar, X, Check, Tag } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Calendar, X, Check, Filter, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
@@ -115,8 +115,14 @@ export default function FinancePage() {
   // Custom categories (persisted in settings)
   const [incomeCategories, setIncomeCategories] = useState<string[]>([...INCOME_CATEGORIES]);
   const [expenseCategories, setExpenseCategories] = useState<string[]>([...EXPENSE_CATEGORIES]);
-  const [addingCat, setAddingCat] = useState<"income" | "expense" | null>(null);
-  const [newCatInput, setNewCatInput] = useState("");
+  // Category management dialogs
+  const [manageCatOpen, setManageCatOpen] = useState(false);
+  const [manageCatTab, setManageCatTab] = useState<"income" | "expense">("income");
+  const [renamingCat, setRenamingCat] = useState<{ type: "income" | "expense"; original: string } | null>(null);
+  const [renameVal, setRenameVal] = useState("");
+  const [createCatOpen, setCreateCatOpen] = useState(false);
+  const [createCatType, setCreateCatType] = useState<"income" | "expense">("income");
+  const [createCatName, setCreateCatName] = useState("");
 
   const currency = "AED";
 
@@ -134,21 +140,36 @@ export default function FinancePage() {
 
   useEffect(() => { load(); }, [user?.companyId]);
 
-  async function handleAddCategory() {
-    const name = newCatInput.trim();
-    if (!name || !addingCat || !user?.companyId) return;
-    const updated = addingCat === "income"
+  async function handleCreateCategory() {
+    const name = createCatName.trim();
+    if (!name || !user?.companyId) return;
+    const updated = createCatType === "income"
       ? [...incomeCategories, name]
       : [...expenseCategories, name];
-    if (addingCat === "income") setIncomeCategories(updated);
+    if (createCatType === "income") setIncomeCategories(updated);
     else setExpenseCategories(updated);
-    await saveSettings(user.companyId, addingCat === "income" ? { incomeCategories: updated } : { expenseCategories: updated });
-    setNewCatInput("");
-    setAddingCat(null);
+    await saveSettings(user.companyId, createCatType === "income" ? { incomeCategories: updated } : { expenseCategories: updated });
+    setCreateCatName("");
+    setCreateCatOpen(false);
     toast({ title: `Category "${name}" added` });
   }
 
-  async function handleRemoveCategory(type: "income" | "expense", cat: string) {
+  async function handleRenameCategory() {
+    if (!renamingCat || !user?.companyId) return;
+    const newName = renameVal.trim();
+    if (!newName || newName === renamingCat.original) { setRenamingCat(null); return; }
+    const updated = renamingCat.type === "income"
+      ? incomeCategories.map((c) => c === renamingCat.original ? newName : c)
+      : expenseCategories.map((c) => c === renamingCat.original ? newName : c);
+    if (renamingCat.type === "income") setIncomeCategories(updated);
+    else setExpenseCategories(updated);
+    if (catFilter === renamingCat.original) setCatFilter(newName);
+    await saveSettings(user.companyId, renamingCat.type === "income" ? { incomeCategories: updated } : { expenseCategories: updated });
+    setRenamingCat(null);
+    toast({ title: `Renamed to "${newName}"` });
+  }
+
+  async function handleDeleteCategory(type: "income" | "expense", cat: string) {
     if (!user?.companyId) return;
     const updated = type === "income"
       ? incomeCategories.filter((c) => c !== cat)
@@ -342,134 +363,52 @@ export default function FinancePage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Type tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-          {(["all", "income", "expense"] as TxType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setCatFilter("all"); setAddingCat(null); }}
-              className={cn("px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
-                tab === t ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
+        {/* Type tabs + Category filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+            {(["all", "income", "expense"] as TxType[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setCatFilter("all"); }}
+                className={cn("px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
+                  tab === t ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t === "all" ? `All (${filtered.length})` : t === "income" ? `Income (${filtered.filter(tx => tx.type === "income").length})` : `Expense (${filtered.filter(tx => tx.type === "expense").length})`}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <Select
+              value={catFilter}
+              onValueChange={(v) => {
+                if (v === "__create__") { setCreateCatOpen(true); return; }
+                if (v === "__manage__") { setManageCatOpen(true); return; }
+                setCatFilter(v);
+              }}
             >
-              {t === "all" ? `All (${filtered.length})` : t === "income" ? `Income (${filtered.filter(tx => tx.type === "income").length})` : `Expense (${filtered.filter(tx => tx.type === "expense").length})`}
-            </button>
-          ))}
-        </div>
-
-        {/* Category pills */}
-        <div className="space-y-2">
-          {/* Income categories */}
-          {tab !== "expense" && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide mr-1 flex items-center gap-1">
-                <Tag className="w-3 h-3" /> Income
-              </span>
-              <button
-                onClick={() => setCatFilter("all")}
-                className={cn("px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
-                  catFilter === "all" ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400 hover:text-foreground"
+              <SelectTrigger className="h-8 w-52 text-xs">
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {catOptions.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Categories</div>
+                    {catOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </>
                 )}
-              >
-                All
-              </button>
-              {incomeCategories.map((cat) => (
-                <span key={cat} className={cn("inline-flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium border transition-colors group/cat",
-                  catFilter === cat ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400 hover:text-foreground"
-                )}>
-                  <button onClick={() => setCatFilter(catFilter === cat ? "all" : cat)} className="leading-none">{cat}</button>
-                  <button
-                    onClick={() => handleRemoveCategory("income", cat)}
-                    className={cn("ml-0.5 p-0.5 rounded-full transition-colors", catFilter === cat ? "hover:bg-emerald-700" : "hover:bg-muted")}
-                    title={`Remove "${cat}"`}
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-              ))}
-              {addingCat === "income" ? (
-                <span className="inline-flex items-center gap-1">
-                  <Input
-                    autoFocus
-                    value={newCatInput}
-                    onChange={(e) => setNewCatInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") { setAddingCat(null); setNewCatInput(""); } }}
-                    placeholder="Category name…"
-                    className="h-6 text-xs w-32 px-2"
-                  />
-                  <button onClick={handleAddCategory} className="p-1 rounded-full bg-emerald-600 text-white hover:bg-emerald-700">
-                    <Check className="w-3 h-3" />
-                  </button>
-                  <button onClick={() => { setAddingCat(null); setNewCatInput(""); }} className="p-1 rounded-full border hover:bg-muted">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ) : (
-                <button
-                  onClick={() => { setAddingCat("income"); setNewCatInput(""); }}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition-colors"
-                >
-                  + Add
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Expense categories */}
-          {tab !== "income" && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-medium text-red-600 uppercase tracking-wide mr-1 flex items-center gap-1">
-                <Tag className="w-3 h-3" /> Expense
-              </span>
-              <button
-                onClick={() => setCatFilter("all")}
-                className={cn("px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
-                  catFilter === "all" ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground hover:border-red-400 hover:text-foreground"
-                )}
-              >
-                All
-              </button>
-              {expenseCategories.map((cat) => (
-                <span key={cat} className={cn("inline-flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium border transition-colors",
-                  catFilter === cat ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground hover:border-red-400 hover:text-foreground"
-                )}>
-                  <button onClick={() => setCatFilter(catFilter === cat ? "all" : cat)} className="leading-none">{cat}</button>
-                  <button
-                    onClick={() => handleRemoveCategory("expense", cat)}
-                    className={cn("ml-0.5 p-0.5 rounded-full transition-colors", catFilter === cat ? "hover:bg-red-600" : "hover:bg-muted")}
-                    title={`Remove "${cat}"`}
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-              ))}
-              {addingCat === "expense" ? (
-                <span className="inline-flex items-center gap-1">
-                  <Input
-                    autoFocus
-                    value={newCatInput}
-                    onChange={(e) => setNewCatInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") { setAddingCat(null); setNewCatInput(""); } }}
-                    placeholder="Category name…"
-                    className="h-6 text-xs w-32 px-2"
-                  />
-                  <button onClick={handleAddCategory} className="p-1 rounded-full bg-red-500 text-white hover:bg-red-600">
-                    <Check className="w-3 h-3" />
-                  </button>
-                  <button onClick={() => { setAddingCat(null); setNewCatInput(""); }} className="p-1 rounded-full border hover:bg-muted">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ) : (
-                <button
-                  onClick={() => { setAddingCat("expense"); setNewCatInput(""); }}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-red-300 text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  + Add
-                </button>
-              )}
-            </div>
-          )}
+                <div className="my-1 border-t" />
+                <SelectItem value="__create__" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Create new category</span>
+                </SelectItem>
+                <SelectItem value="__manage__" className="text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><Pencil className="w-3.5 h-3.5" /> Manage categories</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Transaction List */}
@@ -653,6 +592,151 @@ export default function FinancePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Category Dialog */}
+      <Dialog open={createCatOpen} onOpenChange={(o) => { setCreateCatOpen(o); if (!o) setCreateCatName(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create New Category</DialogTitle>
+            <DialogDescription>Add a custom category for income or expense transactions.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setCreateCatType("income")}
+                className={cn("py-2 rounded-lg border text-sm font-medium transition-colors",
+                  createCatType === "income" ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-emerald-400"
+                )}
+              >
+                Income
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateCatType("expense")}
+                className={cn("py-2 rounded-lg border text-sm font-medium transition-colors",
+                  createCatType === "expense" ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground hover:border-red-400"
+                )}
+              >
+                Expense
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category name *</Label>
+              <Input
+                autoFocus
+                placeholder="e.g. Freelance, Insurance…"
+                value={createCatName}
+                onChange={(e) => setCreateCatName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreateCategory(); }}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCreateCatOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateCategory} disabled={!createCatName.trim()}>Create Category</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Categories Dialog */}
+      <Dialog open={manageCatOpen} onOpenChange={(o) => { setManageCatOpen(o); if (!o) setRenamingCat(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+            <DialogDescription>Rename or delete your income and expense categories.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {/* Tab selector */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+              {(["income", "expense"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setManageCatTab(t); setRenamingCat(null); }}
+                  className={cn("px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors",
+                    manageCatTab === t ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t === "income" ? "Income" : "Expense"}
+                </button>
+              ))}
+            </div>
+
+            {/* Category list */}
+            <div className="rounded-lg border divide-y max-h-64 overflow-y-auto">
+              {(manageCatTab === "income" ? incomeCategories : expenseCategories).map((cat) => (
+                <div key={cat} className="flex items-center gap-2 px-3 py-2.5">
+                  {renamingCat?.original === cat && renamingCat.type === manageCatTab ? (
+                    <>
+                      <Input
+                        autoFocus
+                        value={renameVal}
+                        onChange={(e) => setRenameVal(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleRenameCategory(); if (e.key === "Escape") setRenamingCat(null); }}
+                        className="h-7 text-sm flex-1"
+                      />
+                      <button onClick={handleRenameCategory} className="p-1.5 rounded-md bg-primary text-white hover:bg-primary/90 shrink-0" title="Save">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setRenamingCat(null)} className="p-1.5 rounded-md border hover:bg-muted shrink-0" title="Cancel">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm">{cat}</span>
+                      <button
+                        onClick={() => { setRenamingCat({ type: manageCatTab, original: cat }); setRenameVal(cat); }}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                        title="Rename"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(manageCatTab, cat)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {(manageCatTab === "income" ? incomeCategories : expenseCategories).length === 0 && (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">No categories yet.</div>
+              )}
+            </div>
+
+            {/* Quick add at bottom */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add new category…"
+                value={createCatName}
+                onChange={(e) => setCreateCatName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setCreateCatType(manageCatTab);
+                    handleCreateCategory();
+                  }
+                }}
+                className="h-8 text-sm"
+              />
+              <Button
+                size="sm"
+                className="shrink-0"
+                disabled={!createCatName.trim()}
+                onClick={() => { setCreateCatType(manageCatTab); handleCreateCategory(); }}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManageCatOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
