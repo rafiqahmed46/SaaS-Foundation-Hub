@@ -12,7 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Wrench, Mail, Phone, ChevronRight, CheckCircle2, Clock } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Wrench, Mail, Phone, ChevronRight, CheckCircle2, Clock, X } from "lucide-react";
+import PhoneActionButtons from "@/components/PhoneActionButtons";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -22,11 +23,11 @@ const SPECIALIZATIONS = [
 ];
 
 type FormData = {
-  name: string; email: string; phone: string;
+  name: string; email: string; phone: string; phones: string[];
   specialization: string; status: "active" | "inactive"; notes: string;
 };
 
-const emptyForm: FormData = { name: "", email: "", phone: "", specialization: "", status: "active", notes: "" };
+const emptyForm: FormData = { name: "", email: "", phone: "", phones: [], specialization: "", status: "active", notes: "" };
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -62,7 +63,7 @@ export default function TechniciansPage() {
 
   function openEdit(t: Technician) {
     setEditTech(t);
-    setForm({ name: t.name, email: t.email, phone: t.phone || "", specialization: t.specialization || "", status: t.status, notes: t.notes || "" });
+    setForm({ name: t.name, email: t.email, phone: t.phone || "", phones: t.phones?.filter(Boolean) ?? [], specialization: t.specialization || "", status: t.status, notes: t.notes || "" });
     setErrors({});
     setDialogOpen(true);
   }
@@ -73,7 +74,8 @@ export default function TechniciansPage() {
     if (!user?.companyId) return;
     setSaving(true);
     try {
-      const payload = { companyId: user.companyId, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() || undefined, specialization: form.specialization || undefined, status: form.status, notes: form.notes.trim() || undefined };
+      const extraPhones = form.phones.map((p) => p.trim()).filter(Boolean);
+      const payload = { companyId: user.companyId, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() || undefined, phones: extraPhones.length ? extraPhones : undefined, specialization: form.specialization || undefined, status: form.status, notes: form.notes.trim() || undefined };
       if (editTech) { await updateTechnician(editTech.id, payload); toast({ title: "Technician updated" }); }
       else { await addTechnician(payload); toast({ title: "Technician added" }); }
       setDialogOpen(false);
@@ -152,7 +154,13 @@ export default function TechniciansPage() {
                   </div>
                   <div className="space-y-1.5 mb-4 flex-1">
                     {tech.email && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Mail className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{tech.email}</span></div>}
-                    {tech.phone && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Phone className="w-3.5 h-3.5 shrink-0" /><span>{tech.phone}</span></div>}
+                    {(tech.phone || (tech.phones ?? []).length > 0) && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                        <span className="flex-1 truncate">{tech.phone || tech.phones?.[0]}</span>
+                        <PhoneActionButtons phones={[tech.phone, ...(tech.phones ?? [])].filter(Boolean) as string[]} variant="icon" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 pt-3 border-t border-border/60">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock className="w-3.5 h-3.5 text-blue-500" /><span><strong className="text-foreground">{stats.active}</strong> active</span></div>
@@ -185,9 +193,20 @@ export default function TechniciansPage() {
                 <Input type="email" value={form.email} onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); setErrors((er) => ({ ...er, email: false })); }} placeholder="john@company.ae" className={errors.email ? "border-red-400" : ""} />
                 {errors.email && <p className="text-xs text-red-500">Email is required</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="col-span-2 space-y-1.5">
                 <Label>Phone</Label>
-                <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+971 50 000 0000" />
+                <div className="space-y-2">
+                  <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+971 50 000 0000" />
+                  {form.phones.map((p, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input value={p} onChange={(e) => { const arr = [...form.phones]; arr[i] = e.target.value; setForm((f) => ({ ...f, phones: arr })); }} placeholder="+971 50 000 0000" className="flex-1" />
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, phones: f.phones.filter((_, j) => j !== i) }))} className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, phones: [...f.phones, ""] }))} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                    <Plus className="w-3.5 h-3.5" /> Add another number
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
