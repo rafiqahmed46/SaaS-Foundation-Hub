@@ -273,6 +273,12 @@ export async function syncInvoiceIncome(params: {
   });
 }
 
+export async function getTransaction(id: string): Promise<Transaction | null> {
+  const snap = await getDoc(doc(db, "transactions", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Transaction;
+}
+
 export async function getTransactions(companyId: string): Promise<Transaction[]> {
   const q = query(collection(db, "transactions"), where("companyId", "==", companyId));
   const snap = await getDocs(q);

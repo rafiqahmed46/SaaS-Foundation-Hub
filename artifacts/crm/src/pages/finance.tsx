@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Calendar, X, Check, Filter, ChevronDown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Calendar, X, Check, Filter, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ function SummaryCard({ label, value, icon: Icon, color, currency }: {
 export default function FinancePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,7 +248,6 @@ export default function FinancePage() {
 
   async function handleSave() {
     const amount = parseFloat(form.amount);
-    if (!form.description.trim()) { toast({ title: "Description is required", variant: "destructive" }); return; }
     if (!form.category) { toast({ title: "Category is required", variant: "destructive" }); return; }
     if (!form.amount || isNaN(amount) || amount <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     if (!form.date) { toast({ title: "Date is required", variant: "destructive" }); return; }
@@ -436,13 +436,17 @@ export default function FinancePage() {
               </thead>
               <tbody className="divide-y">
                 {filtered.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-muted/30 transition-colors group">
+                  <tr
+                    key={tx.id}
+                    onClick={() => navigate(`/finance/${tx.id}`)}
+                    className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                  >
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {new Date(tx.date + "T00:00:00").toLocaleDateString("en-GB")}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium leading-tight">{tx.description}</p>
+                        <p className="font-medium leading-tight">{tx.description || <span className="text-muted-foreground italic">No description</span>}</p>
                         {tx.source === "invoice" && (
                           <Badge variant="outline" className="text-xs shrink-0 border-blue-300 text-blue-700 bg-blue-50">Invoice</Badge>
                         )}
@@ -455,7 +459,7 @@ export default function FinancePage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">
                       {tx.source === "invoice" && tx.invoiceId
-                        ? <Link href={`/invoices/${tx.invoiceId}`} className="text-blue-600 hover:underline font-medium">{tx.reference}</Link>
+                        ? <Link href={`/invoices/${tx.invoiceId}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline font-medium">{tx.reference}</Link>
                         : tx.reference || "—"}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
@@ -464,13 +468,14 @@ export default function FinancePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEdit(tx)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(tx); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setDeleteId(tx.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteId(tx.id); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 ml-1" />
                       </div>
                     </td>
                   </tr>
