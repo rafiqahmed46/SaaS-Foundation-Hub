@@ -133,13 +133,12 @@ export default function TasksPage() {
     }
   }
 
-  async function handleStatusToggle(task: Task) {
-    const next: Task["status"] = task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "done" : "todo";
+  async function handleStatusChange(task: Task, status: Task["status"]) {
     try {
-      await updateTask(task.id, { status: next });
-      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
+      await updateTask(task.id, { status });
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status } : t));
     } catch {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Error updating status", variant: "destructive" });
     }
   }
 
@@ -207,17 +206,9 @@ export default function TasksPage() {
         ) : (
           <div className="space-y-2">
             {filtered.map((task) => {
-              const StatusIcon = STATUS_CONFIG[task.status].icon;
               const overdue = isOverdue(task);
               return (
                 <div key={task.id} className={cn("rounded-xl border bg-card p-4 flex items-start gap-3 hover:border-primary/30 transition-colors", overdue && "border-red-200 bg-red-50/30")}>
-                  <button
-                    onClick={() => handleStatusToggle(task)}
-                    className={cn("mt-0.5 shrink-0 transition-colors", STATUS_CONFIG[task.status].color)}
-                    title="Click to advance status"
-                  >
-                    <StatusIcon className="w-5 h-5" />
-                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className={cn("font-medium leading-tight", task.status === "done" && "line-through text-muted-foreground")}>{task.title}</p>
@@ -239,9 +230,23 @@ export default function TasksPage() {
                           Due {new Date(task.dueDate).toLocaleDateString()}
                         </span>
                       )}
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_CONFIG[task.status].bg, STATUS_CONFIG[task.status].color)}>
-                        {STATUS_CONFIG[task.status].label}
-                      </span>
+                      <Select
+                        value={task.status}
+                        onValueChange={(v) => handleStatusChange(task, v as Task["status"])}
+                      >
+                        <SelectTrigger className={cn(
+                          "h-6 text-xs px-2 gap-1 border rounded-full w-auto",
+                          STATUS_CONFIG[task.status].bg,
+                          STATUS_CONFIG[task.status].color
+                        )}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todo">To Do</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </SelectContent>
+                      </Select>
                       {!isTechnician && technicians.length > 0 && (
                         <Select
                           value={task.assignedTo || "unassigned"}
