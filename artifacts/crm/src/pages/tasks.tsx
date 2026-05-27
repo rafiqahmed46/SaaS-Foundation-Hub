@@ -134,6 +134,10 @@ export default function TasksPage() {
   }
 
   async function handleStatusChange(task: Task, status: Task["status"]) {
+    if (status !== "todo" && !task.assignedTo) {
+      toast({ title: "Assign a technician first", description: "A task must be assigned before it can be marked In Progress or Done.", variant: "destructive" });
+      return;
+    }
     try {
       await updateTask(task.id, { status });
       setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status } : t));
