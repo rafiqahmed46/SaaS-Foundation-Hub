@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @workspace/crm run build",
-  "outputDirectory": "artifacts/crm/dist",
+  "framework": null,
   "installCommand": "pnpm install",
-  "framework": null
+  "buildCommand": "pnpm --filter @workspace/crm run build",
+  "outputDirectory": "artifacts/crm/dist"
 }
