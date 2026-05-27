@@ -28,11 +28,18 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
+  phones?: string[];
   address?: string;
   notes?: string;
   lat?: number;
   lng?: number;
   createdAt: string;
+}
+
+export function getCustomerPhones(c: Customer): string[] {
+  if (c.phones && c.phones.length > 0) return c.phones.filter(Boolean);
+  if (c.phone) return [c.phone];
+  return [];
 }
 
 export async function getCustomers(companyId: string): Promise<Customer[]> {

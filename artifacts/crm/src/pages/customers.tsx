@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCustomers, addCustomer, updateCustomer, deleteCustomer, Customer } from "@/lib/firestore";
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer, Customer, getCustomerPhones } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,19 +28,19 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink } from "lucide-react";
+import { ArrowUpDown, Plus, Search, Phone, MessageCircle, Pencil, Trash2, MapPin, Users, ExternalLink, X } from "lucide-react";
 
 type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
 
 type FormData = {
   name: string;
   email: string;
-  phone: string;
+  phones: string[];
   address: string;
   notes: string;
 };
 
-const emptyForm: FormData = { name: "", email: "", phone: "", address: "", notes: "" };
+const emptyForm: FormData = { name: "", email: "", phones: [""], address: "", notes: "" };
 
 function mapsUrl(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
@@ -83,7 +83,8 @@ export default function CustomersPage() {
 
   function openEdit(c: Customer) {
     setEditCustomer(c);
-    setForm({ name: c.name, email: c.email, phone: c.phone || "", address: c.address || "", notes: c.notes || "" });
+    const phones = getCustomerPhones(c);
+    setForm({ name: c.name, email: c.email, phones: phones.length ? phones : [""], address: c.address || "", notes: c.notes || "" });
     setFieldErrors({});
     setDialogOpen(true);
   }
@@ -100,16 +101,22 @@ export default function CustomersPage() {
     }
     setSaving(true);
     try {
+      const cleanPhones = form.phones.map((p) => p.trim()).filter(Boolean);
+      const primaryPhone = cleanPhones[0] || undefined;
       if (editCustomer) {
         await updateCustomer(editCustomer.id, {
           name: form.name.trim(), email: form.email.trim(),
-          phone: form.phone.trim(), address: form.address.trim(), notes: form.notes.trim(),
+          phones: cleanPhones.length ? cleanPhones : undefined,
+          phone: primaryPhone,
+          address: form.address.trim(), notes: form.notes.trim(),
         });
         toast({ title: "Customer updated" });
       } else {
         await addCustomer({
           companyId: user.companyId, name: form.name.trim(), email: form.email.trim(),
-          phone: form.phone.trim() || undefined, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
+          phones: cleanPhones.length ? cleanPhones : undefined,
+          phone: primaryPhone,
+          address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
         });
         toast({ title: "Customer added" });
       }
@@ -145,7 +152,7 @@ export default function CustomersPage() {
       (c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.email.toLowerCase().includes(search.toLowerCase()) ||
-        (c.phone || "").includes(search)
+        getCustomerPhones(c).some((p) => p.includes(search))
     )
     .sort((a, b) => {
       if (sortKey === "name-asc") return a.name.localeCompare(b.name);
@@ -254,31 +261,46 @@ export default function CustomersPage() {
                         </button>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{c.email}</td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{c.phone || "—"}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
+                        {(() => {
+                          const ph = getCustomerPhones(c);
+                          if (!ph.length) return "—";
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              {ph[0]}
+                              {ph.length > 1 && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground">+{ph.length - 1}</span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground max-w-xs truncate">{c.address || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {c.phone && (
-                            <a
-                              href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
-                              target="_blank" rel="noopener noreferrer"
-                              title="WhatsApp"
-                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
-                              data-testid={`button-whatsapp-${c.id}`}
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </a>
-                          )}
-                          {c.phone && (
-                            <a
-                              href={`tel:${c.phone}`}
-                              title="Call"
-                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-                              data-testid={`button-call-${c.id}`}
-                            >
-                              <Phone className="w-4 h-4" />
-                            </a>
-                          )}
+                          {getCustomerPhones(c).slice(0, 1).map((ph) => (
+                            <>
+                              <a
+                                key={`wa-${ph}`}
+                                href={`https://wa.me/${ph.replace(/\D/g, "")}`}
+                                target="_blank" rel="noopener noreferrer"
+                                title={`WhatsApp ${ph}`}
+                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
+                                data-testid={`button-whatsapp-${c.id}`}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </a>
+                              <a
+                                key={`call-${ph}`}
+                                href={`tel:${ph}`}
+                                title={`Call ${ph}`}
+                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                                data-testid={`button-call-${c.id}`}
+                              >
+                                <Phone className="w-4 h-4" />
+                              </a>
+                            </>
+                          ))}
                           {c.address && (
                             <a
                               href={mapsUrl(c.address)}
@@ -349,8 +371,41 @@ export default function CustomersPage() {
               {fieldErrors.email && <p className="text-xs text-red-500 font-medium">Email is required</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-phone">Phone</Label>
-              <Input id="c-phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" data-testid="input-customer-phone" />
+              <div className="flex items-center justify-between">
+                <Label>Phone Numbers <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              </div>
+              <div className="space-y-2">
+                {form.phones.map((ph, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      value={ph}
+                      onChange={(e) => {
+                        const updated = [...form.phones];
+                        updated[i] = e.target.value;
+                        setForm((f) => ({ ...f, phones: updated }));
+                      }}
+                      placeholder="+971 50 000 0000"
+                      data-testid={i === 0 ? "input-customer-phone" : undefined}
+                    />
+                    {form.phones.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, phones: f.phones.filter((_, j) => j !== i) }))}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, phones: [...f.phones, ""] }))}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add another number
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-address">Address</Label>

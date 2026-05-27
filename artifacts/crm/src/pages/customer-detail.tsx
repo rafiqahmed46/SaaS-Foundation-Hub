@@ -7,6 +7,7 @@ import {
   getCustomerVisits, addCustomerVisit,
   getTasks, addTask, updateTask, deleteTask,
   Customer, Invoice, Quotation, Settings, CustomerVisit, Task, getSettings,
+  getCustomerPhones,
 } from "@/lib/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Phone, MessageCircle, MapPin, Mail, FileText,
   FileCheck, Pencil, TrendingUp, Receipt, ClipboardList, Navigation,
-  CheckSquare, Circle, Clock, CheckCircle2, AlertTriangle, Trash2, Plus, Download, Eye, ChevronDown,
+  CheckSquare, Circle, Clock, CheckCircle2, AlertTriangle, Trash2, Plus, Download, Eye, ChevronDown, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrencySymbol, fmtDate } from "@/lib/utils-crm";
@@ -71,7 +72,7 @@ export default function CustomerDetailPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phones: [""], address: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
   const emptyTaskForm = { title: "", description: "", status: "todo" as Task["status"], priority: "medium" as Task["priority"], dueDate: "" };
@@ -154,10 +155,11 @@ export default function CustomerDetailPage() {
 
   function openEdit() {
     if (!customer) return;
+    const phones = getCustomerPhones(customer);
     setForm({
       name: customer.name,
       email: customer.email,
-      phone: customer.phone || "",
+      phones: phones.length ? phones : [""],
       address: customer.address || "",
       notes: customer.notes || "",
     });
@@ -172,16 +174,19 @@ export default function CustomerDetailPage() {
     }
     setSaving(true);
     try {
+      const cleanPhones = form.phones.map((p) => p.trim()).filter(Boolean);
+      const primaryPhone = cleanPhones[0] || undefined;
       await updateCustomer(customer.id, {
         name: form.name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim(),
+        phones: cleanPhones.length ? cleanPhones : undefined,
+        phone: primaryPhone,
         address: form.address.trim(),
         notes: form.notes.trim(),
       });
       setCustomer((prev) =>
         prev
-          ? { ...prev, ...form, phone: form.phone || undefined, address: form.address || undefined, notes: form.notes || undefined }
+          ? { ...prev, name: form.name.trim(), email: form.email.trim(), phones: cleanPhones.length ? cleanPhones : undefined, phone: primaryPhone, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined }
           : prev
       );
       toast({ title: "Customer updated" });
@@ -662,12 +667,12 @@ export default function CustomerDetailPage() {
                 <Mail className="w-4 h-4 shrink-0 text-primary/60" />
                 <a href={`mailto:${customer.email}`} className="hover:underline hover:text-foreground truncate">{customer.email}</a>
               </div>
-              {customer.phone && (
-                <div className="flex items-center gap-2.5 text-muted-foreground">
+              {getCustomerPhones(customer).map((ph, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-muted-foreground">
                   <Phone className="w-4 h-4 shrink-0 text-primary/60" />
-                  <a href={`tel:${customer.phone}`} className="hover:underline hover:text-foreground">{customer.phone}</a>
+                  <a href={`tel:${ph}`} className="hover:underline hover:text-foreground">{ph}</a>
                 </div>
-              )}
+              ))}
               {customer.address && (
                 <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
                   <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary/60" />
@@ -702,23 +707,25 @@ export default function CustomerDetailPage() {
                   </a>
                 );
               })()}
-              {customer.phone && (
-                <a
-                  href={`https://wa.me/${customer.phone.replace(/\D/g, "")}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-                </a>
-              )}
-              {customer.phone && (
-                <a
-                  href={`tel:${customer.phone}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
-                >
-                  <Phone className="w-3.5 h-3.5" /> Call
-                </a>
-              )}
+              {getCustomerPhones(customer).map((ph, i) => (
+                <span key={i} className="flex items-center gap-1">
+                  <a
+                    href={`https://wa.me/${ph.replace(/\D/g, "")}`}
+                    target="_blank" rel="noopener noreferrer"
+                    title={`WhatsApp ${ph}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> {i === 0 ? "WhatsApp" : ph}
+                  </a>
+                  <a
+                    href={`tel:${ph}`}
+                    title={`Call ${ph}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
+                  >
+                    <Phone className="w-3.5 h-3.5" /> {i === 0 ? "Call" : ""}
+                  </a>
+                </span>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -1030,8 +1037,38 @@ export default function CustomerDetailPage() {
               <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" />
             </div>
             <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+971 50 000 0000" />
+              <Label>Phone Numbers <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <div className="space-y-2">
+                {form.phones.map((ph, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      value={ph}
+                      onChange={(e) => {
+                        const updated = [...form.phones];
+                        updated[i] = e.target.value;
+                        setForm((f) => ({ ...f, phones: updated }));
+                      }}
+                      placeholder="+971 50 000 0000"
+                    />
+                    {form.phones.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, phones: f.phones.filter((_, j) => j !== i) }))}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, phones: [...f.phones, ""] }))}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add another number
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
