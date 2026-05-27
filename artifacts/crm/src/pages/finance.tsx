@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { Link } from "wouter";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -362,14 +363,23 @@ export default function FinancePage() {
                       {new Date(tx.date + "T00:00:00").toLocaleDateString("en-GB")}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium leading-tight">{tx.description}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium leading-tight">{tx.description}</p>
+                        {tx.source === "invoice" && (
+                          <Badge variant="outline" className="text-xs shrink-0 border-blue-300 text-blue-700 bg-blue-50">Invoice</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
                       <Badge variant="outline" className={cn("text-xs", tx.type === "income" ? "border-emerald-300 text-emerald-700 bg-emerald-50" : "border-red-300 text-red-700 bg-red-50")}>
                         {tx.category}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">{tx.reference || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">
+                      {tx.source === "invoice" && tx.invoiceId
+                        ? <Link href={`/invoices/${tx.invoiceId}`} className="text-blue-600 hover:underline font-medium">{tx.reference}</Link>
+                        : tx.reference || "—"}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
                       <span className={tx.type === "income" ? "text-emerald-600" : "text-red-600"}>
                         {tx.type === "income" ? "+" : "-"}{currency} {tx.amount.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

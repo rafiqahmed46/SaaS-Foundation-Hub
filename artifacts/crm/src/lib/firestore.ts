@@ -242,7 +242,35 @@ export interface Transaction {
   date: string;        // YYYY-MM-DD
   description: string;
   reference?: string;
+  source?: "invoice" | "manual";
+  invoiceId?: string;
   createdAt: string;
+}
+
+// Creates or overwrites an income transaction tied to a paid invoice.
+// Uses a deterministic doc ID (inv_<invoiceId>) so it's idempotent.
+export async function syncInvoiceIncome(params: {
+  companyId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  total: number;
+  currency?: string;
+  date?: string;
+}): Promise<void> {
+  const txId = `inv_${params.invoiceId}`;
+  await setDoc(doc(db, "transactions", txId), {
+    companyId: params.companyId,
+    type: "income",
+    category: "Sales",
+    amount: params.total,
+    date: params.date || new Date().toISOString().slice(0, 10),
+    description: `Invoice ${params.invoiceNumber}${params.customerName ? ` — ${params.customerName}` : ""}`,
+    reference: params.invoiceNumber,
+    source: "invoice",
+    invoiceId: params.invoiceId,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function getTransactions(companyId: string): Promise<Transaction[]> {

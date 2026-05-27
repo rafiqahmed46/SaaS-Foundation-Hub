@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getInvoice, getCustomers, getSettings, updateInvoice, Customer, Settings } from "@/lib/firestore";
+import { getInvoice, getCustomers, getSettings, updateInvoice, syncInvoiceIncome, Customer, Settings } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ export default function InvoiceEditPage() {
 
   const [customerId, setCustomerId] = useState("none");
   const [status, setStatus] = useState("draft");
+  const [originalStatus, setOriginalStatus] = useState("draft");
   const [dueDate, setDueDate] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -57,6 +58,7 @@ export default function InvoiceEditPage() {
         setInvoiceNumber(inv.invoiceNumber);
         setCustomerId(inv.customerId || "none");
         setStatus(inv.status);
+        setOriginalStatus(inv.status);
         setDueDate(inv.dueDate || "");
         setPoNumber((inv as { poNumber?: string }).poNumber || "");
         setNotes(inv.notes || "");
@@ -116,6 +118,17 @@ export default function InvoiceEditPage() {
         dueDate: dueDate || undefined,
         poNumber: poNumber.trim() || undefined,
       });
+      if (status === "paid" && originalStatus !== "paid" && user?.companyId) {
+        await syncInvoiceIncome({
+          companyId: user.companyId,
+          invoiceId: id,
+          invoiceNumber,
+          customerName: selectedCustomer?.name || "",
+          total,
+          currency,
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
       toast({ title: "Invoice updated", description: `${invoiceNumber} has been saved.` });
       navigate(`/invoices/${id}`);
     } catch (err: unknown) {

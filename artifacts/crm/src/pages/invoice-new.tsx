@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCustomers, getSettings, addInvoice, getNextInvoiceNumber, Customer, Settings } from "@/lib/firestore";
+import { getCustomers, getSettings, addInvoice, getNextInvoiceNumber, syncInvoiceIncome, Customer, Settings } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,7 +104,7 @@ export default function InvoiceNewPage() {
       const resolvedCustomerId = customerId === "none" ? "" : customerId;
       const selectedCustomer = customers.find((c) => c.id === resolvedCustomerId);
       const invoiceNumber = await getNextInvoiceNumber(user.companyId, settings?.invoicePrefix || "INV-");
-      await addInvoice({
+      const ref = await addInvoice({
         companyId: user.companyId,
         customerId: resolvedCustomerId,
         customerName: selectedCustomer?.name || "",
@@ -125,6 +125,17 @@ export default function InvoiceNewPage() {
         dueDate: dueDate || undefined,
         poNumber: poNumber.trim() || undefined,
       });
+      if (status === "paid") {
+        await syncInvoiceIncome({
+          companyId: user.companyId,
+          invoiceId: ref.id,
+          invoiceNumber,
+          customerName: selectedCustomer?.name || "",
+          total,
+          currency: settings?.currency || "AED",
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
       toast({ title: "Invoice created", description: `${invoiceNumber} has been saved.` });
       navigate("/invoices");
     } catch (err: unknown) {

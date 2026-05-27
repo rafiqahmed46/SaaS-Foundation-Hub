@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import Layout from "@/components/Layout";
-import { getInvoice, getSettings, updateInvoice, Invoice, Settings } from "@/lib/firestore";
+import { getInvoice, getSettings, updateInvoice, syncInvoiceIncome, Invoice, Settings } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,8 +75,19 @@ export default function InvoiceDetailPage() {
     setUpdatingStatus(true);
     try {
       await updateInvoice(id, { status: newStatus as Invoice["status"] });
+      if (newStatus === "paid" && invoice.status !== "paid" && user?.companyId) {
+        await syncInvoiceIncome({
+          companyId: user.companyId,
+          invoiceId: id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          total: invoice.total,
+          currency: invoice.currency,
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
       setInvoice((prev) => prev ? { ...prev, status: newStatus as Invoice["status"] } : prev);
-      toast({ title: "Status updated" });
+      toast({ title: newStatus === "paid" ? "Marked as paid — income recorded in Finance" : "Status updated" });
     } catch {
       toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
     } finally {
