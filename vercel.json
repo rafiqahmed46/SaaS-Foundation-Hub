@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm --filter @workspace/crm run build",
   "outputDirectory": "artifacts/crm/dist",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install",
   "framework": null
 }

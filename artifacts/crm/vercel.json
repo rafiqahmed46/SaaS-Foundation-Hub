@@ -1,5 +1,5 @@
 {
   "outputDirectory": "dist",
-  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @workspace/crm run build",
+  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @workspace/crm run build",
   "framework": null
 }
