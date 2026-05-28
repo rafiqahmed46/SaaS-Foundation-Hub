@@ -58,6 +58,8 @@ const ALL_NAV: NavItem[] = [
   { href: "/settings", label: "Settings",    icon: Settings,  module: "settings" },
 ];
 
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase() ?? "";
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,6 +71,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, firestoreError, needsSetup, refreshUser, completeSetup } = useAuth();
   const { canAccess } = usePermissions();
   const { toast } = useToast();
+
+  const isAdmin = !!ADMIN_EMAIL && !!user?.email && user.email.trim().toLowerCase() === ADMIN_EMAIL;
 
   function toggleGroup(href: string) {
     setCollapsedGroups((prev) => ({ ...prev, [href]: !prev[href] }));
@@ -102,7 +106,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const showBanner = firestoreError || needsSetup;
 
-  const NavLink = ({ item, indent = false }: { item: NavItem; indent?: boolean }) => {
+  const filteredNav = ALL_NAV.map((item) => {
+    if (item.children) {
+      const visibleChildren = item.children.filter((c) => c.module === null || canAccess(c.module));
+      if (visibleChildren.length === 0) return null;
+      return { ...item, children: visibleChildren };
+    }
+    if (item.module !== null && !canAccess(item.module)) return null;
+    return item;
+  }).filter(Boolean) as NavItem[];
+
+  function NavLink({ item, indent = false }: { item: NavItem; indent?: boolean }) {
     const active = location === item.href || location.startsWith(item.href + "/");
     return (
       <Link
@@ -119,22 +133,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {item.label}
       </Link>
     );
-  };
+  }
 
-  const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase();
-  const isAdmin = !!adminEmail && user?.email?.trim().toLowerCase() === adminEmail;
-
-  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => {
-    const filteredNav = ALL_NAV.map((item) => {
-      if (item.children) {
-        const visibleChildren = item.children.filter((c) => c.module === null || canAccess(c.module));
-        if (visibleChildren.length === 0) return null;
-        return { ...item, children: visibleChildren };
-      }
-      if (item.module !== null && !canAccess(item.module)) return null;
-      return item;
-    }).filter(Boolean) as NavItem[];
-
+  function renderSidebar(mobile = false) {
     return (
       <div className={cn("flex flex-col h-full bg-sidebar text-sidebar-foreground", mobile ? "w-72" : "w-64")}>
         <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
@@ -209,16 +210,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
-  };
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <aside className="hidden md:flex shrink-0"><Sidebar /></aside>
+      <aside className="hidden md:flex shrink-0">{renderSidebar()}</aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full z-10 shadow-2xl"><Sidebar mobile /></aside>
+          <aside className="absolute left-0 top-0 h-full z-10 shadow-2xl">{renderSidebar(true)}</aside>
         </div>
       )}
 
