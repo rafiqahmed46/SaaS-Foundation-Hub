@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams } from "wouter";
-import { addDoc, collection } from "firebase/firestore";
+import { useParams, useSearch } from "wouter";
+import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getInvoice, Invoice, getSettings, Settings } from "@/lib/firestore";
-import { Building2, Download } from "lucide-react";
+import { Building2, Download, CreditCard, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -24,28 +24,106 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString("en-GB"); }
 export default function PortalPage() {
   const params = useParams<{ invoiceId: string }>();
   const invoiceId = params.invoiceId;
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const paymentResult = searchParams.get("payment");   // "success" | "cancelled"
+  const sessionId = searchParams.get("session_id");
+
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Payment states
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+
+  // Feedback states
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
-  useEffect(() => {
+  // Load invoice + settings
+  async function loadInvoice() {
     if (!invoiceId) return;
+    try {
+      const inv = await getInvoice(invoiceId);
+      if (!inv) { setNotFound(true); return; }
+      setInvoice(inv);
+      const sett = await getSettings(inv.companyId);
+      setSettings(sett);
+    } catch { setNotFound(true); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { loadInvoice(); }, [invoiceId]);
+
+  // On redirect back from Stripe — verify the session and update Firestore
+  useEffect(() => {
+    if (paymentResult !== "success" || !sessionId || !invoiceId) return;
     (async () => {
+      setPaymentLoading(true);
       try {
-        const inv = await getInvoice(invoiceId);
-        if (!inv) { setNotFound(true); return; }
-        setInvoice(inv);
-        const sett = await getSettings(inv.companyId);
-        setSettings(sett);
-      } catch { setNotFound(true); }
-      finally { setLoading(false); }
+        const res = await fetch(`/api/stripe/verify?session_id=${sessionId}`);
+        const data = await res.json() as { paid: boolean; amount: number; currency: string };
+        if (data.paid && data.amount > 0) {
+          // Update invoice in Firestore
+          const inv = await getInvoice(invoiceId);
+          if (inv) {
+            const newPaid = (inv.amountPaid || 0) + data.amount;
+            const balance = inv.total - newPaid;
+            await updateDoc(doc(db, "invoices", invoiceId), {
+              amountPaid: newPaid,
+              status: balance <= 0 ? "paid" : inv.status,
+            });
+          }
+          setPaymentVerified(true);
+          await loadInvoice();
+        }
+      } catch {
+        setPaymentError("Could not verify your payment. Please contact us with your session ID.");
+      } finally {
+        setPaymentLoading(false);
+      }
     })();
-  }, [invoiceId]);
+  }, [paymentResult, sessionId, invoiceId]);
+
+  // Redirect to Stripe Checkout
+  async function handlePayNow() {
+    if (!invoice) return;
+    setPaymentLoading(true);
+    setPaymentError("");
+    try {
+      const currency = invoice.currency || settings?.currency || "AED";
+      const balance = invoice.total - (invoice.amountPaid || 0);
+      const portalUrl = `${window.location.origin}/portal/${invoiceId}`;
+
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          amount: balance,
+          currency,
+          portalUrl,
+        }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setPaymentError(data.error || "Failed to start payment. Please try again.");
+        setPaymentLoading(false);
+      }
+    } catch {
+      setPaymentError("Could not connect to payment service. Please try again.");
+      setPaymentLoading(false);
+    }
+  }
 
   function downloadPDF() {
     if (!invoice || !settings) return;
@@ -103,9 +181,15 @@ export default function PortalPage() {
     pdf.save(`${invoice.invoiceNumber}.pdf`);
   }
 
-  if (loading) return (
+  // ── Loading / not-found guards ───────────────────────────────────────────────
+  if (loading || paymentLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="text-center space-y-3">
+        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        {paymentLoading && paymentResult === "success" && (
+          <p className="text-sm text-muted-foreground">Confirming your payment…</p>
+        )}
+      </div>
     </div>
   );
 
@@ -122,6 +206,8 @@ export default function PortalPage() {
   if (!invoice) return null;
 
   const currency = invoice.currency || settings?.currency || "AED";
+  const balance = invoice.total - (invoice.amountPaid || 0);
+  const isPaid = invoice.status === "paid" || balance <= 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -134,13 +220,46 @@ export default function PortalPage() {
             </div>
             <span className="font-bold text-sm">{settings?.companyName || "Invoice"}</span>
           </div>
-          <Button onClick={downloadPDF} variant="outline" size="sm" className="gap-2">
-            <Download className="w-4 h-4" /> Download PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            {!isPaid && (
+              <Button onClick={handlePayNow} disabled={paymentLoading} size="sm" className="gap-2">
+                <CreditCard className="w-4 h-4" />
+                Pay Now
+              </Button>
+            )}
+            <Button onClick={downloadPDF} variant="outline" size="sm" className="gap-2">
+              <Download className="w-4 h-4" /> Download PDF
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+        {/* Payment result banners */}
+        {paymentResult === "success" && paymentVerified && (
+          <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-green-700">Payment received — thank you!</p>
+              <p className="text-sm text-green-600 mt-0.5">
+                {formatCurrency(balance, currency)} has been applied to this invoice.
+              </p>
+            </div>
+          </div>
+        )}
+        {paymentResult === "cancelled" && (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <XCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-700">Payment was cancelled. You can try again when ready.</p>
+          </div>
+        )}
+        {paymentError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-sm text-red-700">{paymentError}</p>
+          </div>
+        )}
+
         {/* Invoice card */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <div className="bg-primary/5 px-6 py-5 border-b">
@@ -178,7 +297,7 @@ export default function PortalPage() {
               )}
             </div>
 
-            {/* Items */}
+            {/* Items table */}
             <div className="rounded-lg border overflow-hidden mb-4">
               <table className="w-full text-sm">
                 <thead>
@@ -236,12 +355,28 @@ export default function PortalPage() {
                     </div>
                     <div className="flex justify-between font-bold text-base border-t pt-2">
                       <span>Balance Due</span>
-                      <span className="text-red-600">{formatCurrency(invoice.total - invoice.amountPaid, currency)}</span>
+                      <span className={balance <= 0 ? "text-green-600" : "text-red-600"}>
+                        {balance <= 0 ? "Paid in Full" : formatCurrency(balance, currency)}
+                      </span>
                     </div>
                   </>
                 )}
               </div>
             </div>
+
+            {/* Pay Now CTA — shown inline when balance is due */}
+            {!isPaid && (
+              <div className="mt-6 pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Pay online — secure card payment</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Powered by Stripe · AED, USD, EUR accepted</p>
+                </div>
+                <Button onClick={handlePayNow} disabled={paymentLoading} className="gap-2 shrink-0">
+                  <CreditCard className="w-4 h-4" />
+                  Pay {formatCurrency(balance, currency)}
+                </Button>
+              </div>
+            )}
 
             {invoice.notes && (
               <div className="mt-6 pt-4 border-t">
@@ -251,7 +386,7 @@ export default function PortalPage() {
             )}
             {settings?.bankName && (
               <div className="mt-4 pt-4 border-t text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Bank Details</p>
+                <p className="font-medium text-foreground mb-1">Bank Transfer Details</p>
                 <p>Bank: {settings.bankName}</p>
                 {settings.bankAccount && <p>Account: {settings.bankAccount}</p>}
                 {settings.bankIban && <p>IBAN: {settings.bankIban}</p>}

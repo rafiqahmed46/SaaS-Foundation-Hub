@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Returns the companyId stored on the user's Firestore profile
+    function userCompanyId() {
+      return get(/databases/$(database)/documents/users/$(uid())).data.companyId;
+    }
+
+    // True when the document's companyId matches the caller's companyId
+    function sameCompany(data) {
+      return data.companyId == userCompanyId();
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Each user can only read/write their own user document
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && uid() == userId;
+    }
+
+    // ── Companies ─────────────────────────────────────────────────────────────
+    // Members can read their own company; only the owner can write
+    match /companies/{companyId} {
+      allow read: if isSignedIn() && userCompanyId() == companyId;
+      allow write: if isSignedIn()
+                   && userCompanyId() == companyId
+                   && get(/databases/$(database)/documents/users/$(uid())).data.role == "owner";
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+    match /settings/{companyId} {
+      allow read: if isSignedIn() && userCompanyId() == companyId;
+      // Only owner or admin can change settings
+      allow write: if isSignedIn()
+                   && userCompanyId() == companyId
+                   && get(/databases/$(database)/documents/users/$(uid())).data.role in ["owner", "admin"];
+    }
+
+    // ── Customers ─────────────────────────────────────────────────────────────
+    match /customers/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Invoices ──────────────────────────────────────────────────────────────
+    // Authenticated members: full access within their company
+    // Public (portal): read-only by document ID (no auth required — URL is the token)
+    match /invoices/{docId} {
+      allow read: if true;   // Portal needs public read by invoiceId
+      allow write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+      // Restrict public write (e.g. updating amountPaid from portal) to specific fields only
+      allow update: if !isSignedIn()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(["amountPaid", "status"]);
+    }
+
+    // ── Payments (partial payment records) ────────────────────────────────────
+    match /payments/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Quotations ────────────────────────────────────────────────────────────
+    match /quotations/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Work Orders ───────────────────────────────────────────────────────────
+    match /workOrders/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Assets ────────────────────────────────────────────────────────────────
+    match /assets/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Contracts ─────────────────────────────────────────────────────────────
+    match /contracts/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Tasks ─────────────────────────────────────────────────────────────────
+    match /tasks/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Technicians ───────────────────────────────────────────────────────────
+    match /technicians/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Finance / Transactions ────────────────────────────────────────────────
+    match /transactions/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Team Invites ──────────────────────────────────────────────────────────
+    match /teamInvites/{docId} {
+      allow read, write: if isSignedIn() && sameCompany(resource.data);
+      allow create: if isSignedIn() && request.resource.data.companyId == userCompanyId();
+    }
+
+    // ── Feedback (public write — from client portal) ──────────────────────────
+    // Anyone with the invoice URL can submit feedback; no one can read it except company members
+    match /feedback/{docId} {
+      allow create: if true;
+      allow read: if isSignedIn()
+                  && get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.companyId == userCompanyId();
+      allow update, delete: if false;
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
