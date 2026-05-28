@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, addDoc, collection } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -11,6 +11,9 @@ import { MarwoWordmark, MarwoMark } from "@/components/MarwoLogo";
 
 export default function SignupPage() {
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const returnTo = params.get("returnTo") ?? "/dashboard";
   const [form, setForm] = useState({
     displayName: "",
     companyName: "",
@@ -80,7 +83,7 @@ export default function SignupPage() {
         throw fsErr;
       }
 
-      navigate("/dashboard");
+      navigate(returnTo);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       const code = (err as { code?: string })?.code ?? "";

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,10 +88,12 @@ const PADDLE_PRICE_IDS: Record<string, string | undefined> = {
 export default function PricingPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [promo, setPromo] = useState<PromoConfig | null>(null);
   const [paddle, setPaddle] = useState<Paddle | undefined>();
+  const autoOpenRef = useRef(false);
 
   useEffect(() => {
     getDoc(doc(db, "adminConfig", "promotions"))
@@ -111,6 +113,18 @@ export default function PricingPage() {
       .catch(() => {});
   }, []);
 
+  // Auto-open checkout when returning from signup with ?plan=X
+  useEffect(() => {
+    if (!paddle || !user || autoOpenRef.current) return;
+    const params = new URLSearchParams(search);
+    const planId = params.get("plan");
+    if (planId && PADDLE_PRICE_IDS[planId]) {
+      autoOpenRef.current = true;
+      setTimeout(() => handleSubscribe(planId), 500);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paddle, user, search]);
+
   const isPromoActive = promo?.enabled === true;
   const percentOff = promo?.percentOff ?? 50;
   const durationMonths = promo?.durationMonths ?? 3;
@@ -119,7 +133,7 @@ export default function PricingPage() {
     .replace("{months}", String(durationMonths));
 
   function handleSubscribe(planId: string) {
-    if (!user) { navigate("/signup"); return; }
+    if (!user) { navigate(`/signup?returnTo=/pricing&plan=${planId}`); return; }
 
     const priceId = PADDLE_PRICE_IDS[planId];
     if (!priceId) {
@@ -142,16 +156,19 @@ export default function PricingPage() {
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         customer: { email: user.email ?? "" },
-        customData: { companyId: user.companyId ?? user.uid, planId },
+        customData: { companyId: String(user.companyId ?? user.uid), planId: String(planId) },
         settings: {
           successUrl: `${baseUrl}/settings?subscription=success`,
           displayMode: "overlay",
           theme: "light",
           locale: "en",
+          allowLogout: false,
         },
       });
     } catch (err: unknown) {
-      toast({ title: "Could not open checkout", description: (err as Error).message, variant: "destructive" });
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Paddle] checkout error:", msg, err);
+      toast({ title: "Could not open checkout", description: msg || "Please try again.", variant: "destructive" });
     } finally {
       setLoading(null);
     }
