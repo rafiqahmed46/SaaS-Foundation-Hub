@@ -108,9 +108,24 @@ export default function PricingPage() {
     initializePaddle({
       environment: env === "sandbox" ? "sandbox" : "production",
       token,
+      eventCallback(event) {
+        const name = event.name as string;
+        if (name === "checkout.error" || name === "checkout.warning") {
+          const detail = JSON.stringify((event as { data?: unknown }).data ?? event);
+          console.error("[Paddle] event:", name, detail);
+          if (name === "checkout.error") {
+            toast({
+              title: "Checkout error",
+              description: detail.slice(0, 200),
+              variant: "destructive",
+            });
+          }
+        }
+      },
     })
       .then((instance) => { if (instance) setPaddle(instance); })
       .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-open checkout when returning from signup with ?plan=X
