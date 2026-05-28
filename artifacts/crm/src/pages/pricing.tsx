@@ -22,7 +22,7 @@ const PLANS = [
   {
     id: "starter",
     name: "Starter",
-    price: 19.99,
+    price: 9.99,
     symbol: "$",
     description: "Perfect for freelancers and solo operators",
     icon: Zap,
@@ -40,7 +40,7 @@ const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: 49.99,
+    price: 14.99,
     symbol: "$",
     description: "For growing teams that need more power",
     icon: Briefcase,
@@ -61,7 +61,7 @@ const PLANS = [
   {
     id: "business",
     name: "Business",
-    price: 99.99,
+    price: 24.99,
     symbol: "$",
     description: "For established companies with full needs",
     icon: Building2,

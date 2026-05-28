@@ -4,9 +4,9 @@ import crypto from "crypto";
 const router: IRouter = Router();
 
 const PLANS = {
-  starter:  { name: "Starter",  price: 19.99, currency: "USD" },
-  pro:      { name: "Pro",      price: 49.99, currency: "USD" },
-  business: { name: "Business", price: 99.99, currency: "USD" },
+  starter:  { name: "Starter",  price: 9.99,  currency: "USD" },
+  pro:      { name: "Pro",      price: 14.99, currency: "USD" },
+  business: { name: "Business", price: 24.99, currency: "USD" },
 } as const;
 
 // GET /api/subscriptions/plans
