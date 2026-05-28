@@ -640,6 +640,7 @@ export interface Settings {
   bankName?: string;
   bankAccount?: string;
   bankIban?: string;
+  paymentLink?: string;
   paymentTerms?: string;
   invoiceFooter?: string;
   incomeCategories?: string[];

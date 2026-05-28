@@ -382,6 +382,17 @@ export default function SettingsPage() {
                 <Label htmlFor="s-bank-iban">IBAN</Label>
                 <Input id="s-bank-iban" value={settings.bankIban || ""} onChange={(e) => update("bankIban", e.target.value)} placeholder="AE070331234567890123456" data-testid="input-bank-iban" />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="s-payment-link">Online Payment Link <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  id="s-payment-link"
+                  value={settings.paymentLink || ""}
+                  onChange={(e) => update("paymentLink", e.target.value)}
+                  placeholder="https://paypal.me/yourname  or any payment URL"
+                  data-testid="input-payment-link"
+                />
+                <p className="text-xs text-muted-foreground">When set, a "Pay Now" button appears on your client portal. Works with PayPal.me, Tap, Telr, or any payment page link.</p>
+              </div>
             </CardContent>
           </Card>
 
