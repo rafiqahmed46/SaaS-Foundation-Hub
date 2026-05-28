@@ -149,6 +149,8 @@ export default function LoginPage() {
             </Link>
           </p>
           <p className="mt-4 text-center text-xs text-muted-foreground/60">
+            <Link href="/pricing" className="hover:underline text-primary/70">Pricing</Link>
+            {" · "}
             <Link href="/terms" className="hover:underline">Terms</Link>
             {" · "}
             <Link href="/privacy" className="hover:underline">Privacy</Link>
