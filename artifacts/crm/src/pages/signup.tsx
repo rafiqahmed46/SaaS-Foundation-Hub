@@ -87,12 +87,23 @@ export default function SignupPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       const code = (err as { code?: string })?.code ?? "";
+      console.error("[Signup] error code:", code, "msg:", msg);
       if (msg.includes("email-already-in-use") || code === "auth/email-already-in-use") {
         setError("This email is already registered. Try signing in.");
       } else if (msg.includes("weak-password") || code === "auth/weak-password") {
         setError("Password is too weak. Use at least 6 characters.");
+      } else if (msg.includes("invalid-email") || code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else if (msg.includes("network-request-failed") || code === "auth/network-request-failed") {
+        setError("Network error — check your connection and try again.");
+      } else if (code === "resource-exhausted") {
+        setError("Service is temporarily at capacity. Please try again in a few minutes.");
+      } else if (code === "permission-denied") {
+        setError("Account created — but profile setup failed. Please sign in and complete setup in Settings.");
+      } else if (msg.includes("unauthorized-domain") || code === "auth/unauthorized-domain") {
+        setError("Sign-up is not enabled for this domain. Please contact support.");
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(`Something went wrong (${code || "unknown"}). Please try again.`);
       }
     } finally {
       setLoading(false);
