@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X, ShieldCheck, Users, Mail, Trash2, Clock, CheckCircle2, Plus } from "lucide-react";
+import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X, ShieldCheck, Users, Mail, Trash2, Clock, CheckCircle2, Plus, Zap } from "lucide-react";
 
 const CURRENCIES = [
   { value: "AED", label: "AED — UAE Dirham (AED)" },
@@ -565,6 +565,33 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Date format: <span className="font-medium text-foreground">DD/MM/YYYY</span> (UAE standard — applied to all invoices and PDFs)</p>
+            </CardContent>
+          </Card>
+
+          {/* Subscription / Billing */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-primary" />
+                <CardTitle className="text-base">Subscription & Billing</CardTitle>
+              </div>
+              <CardDescription>Manage your ClearCRM subscription plan.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
+                <div>
+                  <p className="font-medium text-blue-900">Free Trial</p>
+                  <p className="text-sm text-blue-700 mt-0.5">You are currently on the free trial. Upgrade to keep full access.</p>
+                </div>
+                <a href="/pricing">
+                  <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                    <Zap className="w-4 h-4" /> View Plans
+                  </button>
+                </a>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All plans include a 14-day free trial. No credit card required to start.
+              </p>
             </CardContent>
           </Card>
         </div>

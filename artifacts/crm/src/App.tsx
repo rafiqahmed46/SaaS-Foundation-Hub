@@ -35,6 +35,7 @@ import ReportsPage from "@/pages/reports";
 import CalendarPage from "@/pages/calendar";
 import PortalPage from "@/pages/portal";
 import AdminPage from "@/pages/admin";
+import PricingPage from "@/pages/pricing";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,7 @@ function Router() {
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route path="/admin" component={() => <AdminRoute component={AdminPage} />} />
+      <Route path="/pricing" component={PricingPage} />
       <Route component={NotFound} />
     </Switch>
   );
