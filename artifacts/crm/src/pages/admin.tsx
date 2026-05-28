@@ -66,6 +66,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [grantingAdmin, setGrantingAdmin] = useState(false);
 
   const [promo, setPromo] = useState<PromoConfig>(DEFAULT_PROMO);
   const [promoLoading, setPromoLoading] = useState(true);
@@ -75,47 +77,74 @@ export default function AdminPage() {
     ? `${window.location.origin}${import.meta.env.BASE_URL?.replace(/\/$/, "")}/pricing`
     : "/pricing";
 
+  async function grantSuperAdmin() {
+    if (!user?.uid) return;
+    setGrantingAdmin(true);
+    try {
+      const ref = doc(db, "adminConfig", "superAdmins");
+      const snap = await getDoc(ref);
+      const existing: string[] = snap.exists() ? (snap.data().uids ?? []) : [];
+      if (!existing.includes(user.uid)) {
+        await setDoc(ref, { uids: [...existing, user.uid] }, { merge: true });
+      }
+      toast({ title: "Super admin access granted", description: "Reloading tenant data now…" });
+      setPermissionDenied(false);
+      loadCompanies();
+    } catch {
+      toast({ title: "Could not grant access", description: "Try setting it manually in Firebase Console.", variant: "destructive" });
+    } finally {
+      setGrantingAdmin(false);
+    }
+  }
+
+  async function loadCompanies() {
+    setLoading(true);
+    setError(null);
+    setPermissionDenied(false);
+    try {
+      const [companiesSnap, usersSnap, customersSnap, invoicesSnap] = await Promise.all([
+        getDocs(collection(db, "companies")),
+        getDocs(collection(db, "users")),
+        getDocs(collection(db, "customers")),
+        getDocs(collection(db, "invoices")),
+      ]);
+      const userDocs = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as {
+        id: string; email: string; displayName: string; companyId: string; role: string;
+      }));
+      const customerDocs = customersSnap.docs.map((d) => d.data() as { companyId: string });
+      const invoiceDocs = invoicesSnap.docs.map((d) => d.data() as { companyId: string });
+      const rows: CompanyRow[] = companiesSnap.docs.map((d) => {
+        const data = d.data() as { name: string; ownerId: string; createdAt: string };
+        const owner = userDocs.find((u) => u.id === data.ownerId);
+        return {
+          id: d.id,
+          name: data.name ?? "Unnamed",
+          ownerId: data.ownerId,
+          createdAt: data.createdAt ?? "",
+          ownerEmail: owner?.email ?? "—",
+          ownerName: owner?.displayName ?? "—",
+          userCount: userDocs.filter((u) => u.companyId === d.id).length,
+          customerCount: customerDocs.filter((c) => c.companyId === d.id).length,
+          invoiceCount: invoiceDocs.filter((i) => i.companyId === d.id).length,
+        };
+      });
+      rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      setCompanies(rows);
+    } catch (e: unknown) {
+      const code = (e as { code?: string })?.code;
+      if (code === "permission-denied") {
+        setPermissionDenied(true);
+      } else {
+        setError((e as Error).message ?? "Failed to load data");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     async function load() {
-      try {
-        setLoading(true);
-        const [companiesSnap, usersSnap, customersSnap, invoicesSnap] = await Promise.all([
-          getDocs(collection(db, "companies")),
-          getDocs(collection(db, "users")),
-          getDocs(collection(db, "customers")),
-          getDocs(collection(db, "invoices")),
-        ]);
-
-        const userDocs = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as {
-          id: string; email: string; displayName: string; companyId: string; role: string;
-        }));
-        const customerDocs = customersSnap.docs.map((d) => d.data() as { companyId: string });
-        const invoiceDocs = invoicesSnap.docs.map((d) => d.data() as { companyId: string });
-
-        const rows: CompanyRow[] = companiesSnap.docs.map((d) => {
-          const data = d.data() as { name: string; ownerId: string; createdAt: string };
-          const owner = userDocs.find((u) => u.id === data.ownerId);
-          return {
-            id: d.id,
-            name: data.name ?? "Unnamed",
-            ownerId: data.ownerId,
-            createdAt: data.createdAt ?? "",
-            ownerEmail: owner?.email ?? "—",
-            ownerName: owner?.displayName ?? "—",
-            userCount: userDocs.filter((u) => u.companyId === d.id).length,
-            customerCount: customerDocs.filter((c) => c.companyId === d.id).length,
-            invoiceCount: invoiceDocs.filter((i) => i.companyId === d.id).length,
-          };
-        });
-        rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setCompanies(rows);
-        setError(null);
-      } catch (e: unknown) {
-        setError((e as Error).message ?? "Failed to load data");
-      } finally {
-        setLoading(false);
-      }
-    }
+      loadCompanies();
 
     async function loadPromo() {
       try {

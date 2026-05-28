@@ -87,26 +87,41 @@ export default function CustomerDetailPage() {
     if (!id || !user?.companyId) return;
     async function load() {
       try {
-        const [cust, invs, quots, sett, vis, allTasks] = await Promise.all([
-          getCustomer(id!),
-          getInvoices(user!.companyId!),
-          getQuotations(user!.companyId!),
-          getSettings(user!.companyId!),
-          getCustomerVisits(id!),
-          getTasks(user!.companyId!),
-        ]);
-        setCustomer(cust);
-        setInvoices(invs.filter((i) => i.customerId === id));
-        setQuotations(quots.filter((q) => q.customerId === id));
-        setSettings(sett);
-        setVisits(vis);
         const byDate = (a: Task, b: Task) => {
           if (!a.dueDate && !b.dueDate) return 0;
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
           return a.dueDate.localeCompare(b.dueDate);
         };
+        // Load main data — don't let visits subcollection crash the whole page
+        const [cust, invs, quots, sett, allTasks] = await Promise.all([
+          getCustomer(id!),
+          getInvoices(user!.companyId!),
+          getQuotations(user!.companyId!),
+          getSettings(user!.companyId!),
+          getTasks(user!.companyId!),
+        ]);
+        setCustomer(cust);
+        setInvoices(invs.filter((i) => i.customerId === id));
+        setQuotations(quots.filter((q) => q.customerId === id));
+        setSettings(sett);
         setTasks(allTasks.filter((t) => t.customerId === id).sort(byDate));
+        // Load visits independently — subcollection may not yet be covered by rules
+        try {
+          const vis = await getCustomerVisits(id!);
+          setVisits(vis);
+        } catch {
+          setVisits([]);
+        }
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        if (code === "permission-denied") {
+          toast({
+            title: "Permission denied",
+            description: "Your Firestore rules are blocking this page. Deploy the updated rules from firestore.rules to Firebase Console.",
+            variant: "destructive",
+          });
+        }
       } finally {
         setLoading(false);
       }

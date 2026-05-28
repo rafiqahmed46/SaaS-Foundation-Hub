@@ -47,6 +47,15 @@ service cloud.firestore {
       allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Customer visit check-ins (subcollection) ───────────────────────────
+    match /customers/{customerId}/visits/{visitId} {
+      allow read: if isSignedIn()
+        && belongsToCallerCompany(get(/databases/$(database)/documents/customers/$(customerId)).data);
+      allow create: if isSignedIn()
+        && belongsToCallerCompany(get(/databases/$(database)/documents/customers/$(customerId)).data);
+      allow update, delete: if false;
+    }
+
     // ── Invoices — also readable publicly by document ID (portal access) ──────
     match /invoices/{docId} {
       allow read: if belongsToCallerCompany(resource.data);
@@ -126,6 +135,17 @@ service cloud.firestore {
     match /adminConfig/{docId} {
       allow read: if true;
       allow write: if isSignedIn();
+    }
+
+    // ── Super-admin wildcard — allows designated UIDs to read all collections ─
+    // UIDs are stored in adminConfig/superAdmins.uids (array).
+    function isSuperAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/adminConfig/superAdmins)
+        && get(/databases/$(database)/documents/adminConfig/superAdmins).data.uids.hasAny([request.auth.uid]);
+    }
+    match /{collection}/{document=**} {
+      allow read: if isSuperAdmin();
     }
 
     // ── Feedback — public write (client portal), authenticated read ───────────

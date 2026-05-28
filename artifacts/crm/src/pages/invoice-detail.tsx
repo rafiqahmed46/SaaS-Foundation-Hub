@@ -50,6 +50,7 @@ export default function InvoiceDetailPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<"permission-denied" | "unknown" | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [pdfThemeId, setPdfThemeId] = useState<string>(
     () => localStorage.getItem("invoicePdfTheme") || "blue"
@@ -68,6 +69,7 @@ export default function InvoiceDetailPage() {
 
   async function loadInvoice() {
     if (!id) return;
+    setLoadError(null);
     try {
       const [inv, sett, pays] = await Promise.all([
         getInvoice(id),
@@ -77,6 +79,9 @@ export default function InvoiceDetailPage() {
       setInvoice(inv);
       setSettings(sett);
       setPayments(pays);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      setLoadError(code === "permission-denied" ? "permission-denied" : "unknown");
     } finally {
       setLoading(false);
     }
@@ -630,8 +635,24 @@ export default function InvoiceDetailPage() {
   if (!invoice) {
     return (
       <Layout>
-        <div className="p-6 text-center">
-          <p className="text-muted-foreground">Invoice not found.</p>
+        <div className="p-6 max-w-md mx-auto mt-12 text-center space-y-3">
+          {loadError === "permission-denied" ? (
+            <>
+              <p className="font-semibold text-destructive">Permission denied</p>
+              <p className="text-sm text-muted-foreground">
+                Your Firestore security rules are blocking this read. Deploy the updated
+                <code className="mx-1 px-1 py-0.5 bg-muted rounded text-xs">firestore.rules</code>
+                file to Firebase Console → Firestore → Rules.
+              </p>
+            </>
+          ) : loadError === "unknown" ? (
+            <>
+              <p className="font-semibold">Could not load invoice</p>
+              <p className="text-sm text-muted-foreground">An unexpected error occurred. Try refreshing the page.</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">Invoice not found.</p>
+          )}
           <Button variant="link" onClick={() => navigate("/invoices")}>Back to Invoices</Button>
         </div>
       </Layout>
