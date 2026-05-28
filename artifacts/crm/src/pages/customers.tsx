@@ -63,6 +63,8 @@ export default function CustomersPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ name?: boolean; email?: boolean }>({});
   const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [filterArea, setFilterArea] = useState("all");
+  const [filterCity, setFilterCity] = useState("all");
 
   async function loadCustomers() {
     if (!user?.companyId) return;
@@ -150,15 +152,22 @@ export default function CustomersPage() {
     }
   }
 
+  const uniqueAreas = Array.from(new Set(customers.map((c) => c.area).filter(Boolean) as string[])).sort();
+  const uniqueCities = Array.from(new Set(customers.map((c) => c.city).filter(Boolean) as string[])).sort();
+
   const filtered = customers
-    .filter(
-      (c) =>
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.email.toLowerCase().includes(search.toLowerCase()) ||
-        getCustomerPhones(c).some((p) => p.includes(search)) ||
-        (c.area ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (c.city ?? "").toLowerCase().includes(search.toLowerCase())
-    )
+    .filter((c) => {
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        getCustomerPhones(c).some((p) => p.includes(q)) ||
+        (c.area ?? "").toLowerCase().includes(q) ||
+        (c.city ?? "").toLowerCase().includes(q);
+      const matchArea = filterArea === "all" || c.area === filterArea;
+      const matchCity = filterCity === "all" || c.city === filterCity;
+      return matchSearch && matchArea && matchCity;
+    })
     .sort((a, b) => {
       if (sortKey === "name-asc") return a.name.localeCompare(b.name);
       if (sortKey === "name-desc") return b.name.localeCompare(a.name);
@@ -182,11 +191,12 @@ export default function CustomersPage() {
           </Button>
         </div>
 
-        <div className="flex gap-2 mb-5">
+        {/* Search + Sort row */}
+        <div className="flex gap-2 mb-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search by name, email, or phone..."
+              placeholder="Search by name, email, phone, area or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -205,6 +215,41 @@ export default function CustomersPage() {
               <SelectItem value="name-desc">Name Z → A</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Area + City filter row */}
+        <div className="flex gap-2 mb-5">
+          <Select value={filterArea} onValueChange={setFilterArea}>
+            <SelectTrigger className={`w-44 shrink-0 gap-1.5 ${filterArea !== "all" ? "border-primary text-primary" : ""}`}>
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <SelectValue placeholder="All Areas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Areas</SelectItem>
+              {uniqueAreas.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterCity} onValueChange={setFilterCity}>
+            <SelectTrigger className={`w-44 shrink-0 gap-1.5 ${filterCity !== "all" ? "border-primary text-primary" : ""}`}>
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <SelectValue placeholder="All Cities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cities</SelectItem>
+              {uniqueCities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {(filterArea !== "all" || filterCity !== "all") && (
+            <button
+              onClick={() => { setFilterArea("all"); setFilterCity("all"); }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2"
+            >
+              <X className="w-3.5 h-3.5" /> Clear filters
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground self-center ml-auto">
+            {filtered.length} of {customers.length} customers
+          </p>
         </div>
 
         {loading ? (

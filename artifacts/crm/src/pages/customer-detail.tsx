@@ -703,11 +703,14 @@ export default function CustomerDetailPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
-              {/* Navigate — uses saved GPS or address */}
-              {(customer.lat != null || customer.address) && (() => {
+              {/* Navigate — uses saved GPS, full address, or area+city */}
+              {(customer.lat != null || customer.address || customer.area || customer.city) && (() => {
+                const fallbackDest = customer.address
+                  ? customer.address
+                  : [customer.area, customer.city, "UAE"].filter(Boolean).join(", ");
                 const navUrl = customer.lat != null
                   ? `https://www.google.com/maps/dir/?api=1&destination=${customer.lat},${customer.lng}&travelmode=driving`
-                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address!)}&travelmode=driving`;
+                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fallbackDest)}&travelmode=driving`;
                 return (
                   <a
                     href={navUrl}

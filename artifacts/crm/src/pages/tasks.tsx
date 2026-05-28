@@ -57,6 +57,8 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | Task["status"]>("all");
   const [sortKey, setSortKey] = useState<SortKey>("due-date");
+  const [filterArea, setFilterArea] = useState("all");
+  const [filterCity, setFilterCity] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -217,6 +219,9 @@ export default function TasksPage() {
     done: tasks.filter((t) => t.status === "done").length,
   };
 
+  const uniqueAreas = useMemo(() => Array.from(new Set(customers.map((c) => c.area).filter(Boolean) as string[])).sort(), [customers]);
+  const uniqueCities = useMemo(() => Array.from(new Set(customers.map((c) => c.city).filter(Boolean) as string[])).sort(), [customers]);
+
   const getArea = (task: Task) => {
     const cust = customerMap.get(task.customerId ?? "");
     return cust?.area || cust?.city || "zzz_no_area";
@@ -235,6 +240,17 @@ export default function TasksPage() {
   };
 
   const filtered = (filter === "all" ? tasks : tasks.filter((t) => t.status === filter))
+    .filter((t) => {
+      if (filterArea !== "all") {
+        const cust = customerMap.get(t.customerId ?? "");
+        if (cust?.area !== filterArea) return false;
+      }
+      if (filterCity !== "all") {
+        const cust = customerMap.get(t.customerId ?? "");
+        if (cust?.city !== filterCity) return false;
+      }
+      return true;
+    })
     .slice()
     .sort(sorters[sortKey]);
 
@@ -283,7 +299,7 @@ export default function TasksPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
             <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
               <SelectTrigger className="h-8 text-xs w-36">
@@ -296,6 +312,38 @@ export default function TasksPage() {
                 <SelectItem value="customer">By Customer</SelectItem>
               </SelectContent>
             </Select>
+            {uniqueAreas.length > 0 && (
+              <Select value={filterArea} onValueChange={setFilterArea}>
+                <SelectTrigger className={cn("h-8 text-xs w-36", filterArea !== "all" && "border-primary text-primary")}>
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  <SelectValue placeholder="All Areas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Areas</SelectItem>
+                  {uniqueAreas.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {uniqueCities.length > 0 && (
+              <Select value={filterCity} onValueChange={setFilterCity}>
+                <SelectTrigger className={cn("h-8 text-xs w-36", filterCity !== "all" && "border-primary text-primary")}>
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  <SelectValue placeholder="All Cities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cities</SelectItem>
+                  {uniqueCities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {(filterArea !== "all" || filterCity !== "all") && (
+              <button
+                onClick={() => { setFilterArea("all"); setFilterCity("all"); }}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </button>
+            )}
           </div>
         </div>
 
