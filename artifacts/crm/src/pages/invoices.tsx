@@ -81,7 +81,7 @@ export default function InvoicesPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
@@ -128,68 +128,112 @@ export default function InvoicesPage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Invoice</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Customer</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Due</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
-                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filtered.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-invoice-${inv.id}`}>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-medium font-mono">{inv.invoiceNumber}</p>
-                          <p className="text-xs text-muted-foreground sm:hidden">{inv.customerName}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{inv.customerName}</td>
-                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                        {new Date(inv.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
-                        {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(inv.total, inv.currency || currency)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => navigate(`/invoices/${inv.id}`)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                            data-testid={`button-view-invoice-${inv.id}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(inv.id)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            data-testid={`button-delete-invoice-${inv.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden space-y-3">
+              {filtered.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="rounded-xl border bg-card p-4 flex flex-col gap-3"
+                  data-testid={`row-invoice-${inv.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold font-mono text-sm">{inv.invoiceNumber}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{inv.customerName}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>
+                      {inv.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <p>Issued: {new Date(inv.createdAt).toLocaleDateString("en-GB")}</p>
+                      {inv.dueDate && <p>Due: {new Date(inv.dueDate).toLocaleDateString("en-GB")}</p>}
+                    </div>
+                    <p className="font-bold text-base">{formatCurrency(inv.total, inv.currency || currency)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1 border-t">
+                    <button
+                      onClick={() => navigate(`/invoices/${inv.id}`)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      data-testid={`button-view-invoice-${inv.id}`}
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(inv.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      data-testid={`button-delete-invoice-${inv.id}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block rounded-xl border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Invoice</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customer</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Date</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Due</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                      <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filtered.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-invoice-${inv.id}`}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium font-mono">{inv.invoiceNumber}</p>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{inv.customerName}</td>
+                        <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
+                          {new Date(inv.createdAt).toLocaleDateString("en-GB")}
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
+                          {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-GB") : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold">
+                          {formatCurrency(inv.total, inv.currency || currency)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>
+                            {inv.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => navigate(`/invoices/${inv.id}`)}
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              data-testid={`button-view-invoice-${inv.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(inv.id)}
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              data-testid={`button-delete-invoice-${inv.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

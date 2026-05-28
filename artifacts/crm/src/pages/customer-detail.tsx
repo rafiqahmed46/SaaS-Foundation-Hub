@@ -613,7 +613,7 @@ export default function CustomerDetailPage() {
 
   if (loading) return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Skeleton className="w-16 h-16 rounded-full" />
           <div className="space-y-2"><Skeleton className="h-6 w-40" /><Skeleton className="h-4 w-56" /></div>
@@ -638,7 +638,7 @@ export default function CustomerDetailPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
 
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">

@@ -177,7 +177,7 @@ export default function CustomersPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
@@ -218,9 +218,9 @@ export default function CustomersPage() {
         </div>
 
         {/* Area + City filter row */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex flex-wrap gap-2 mb-5">
           <Select value={filterArea} onValueChange={setFilterArea}>
-            <SelectTrigger className={`w-44 shrink-0 gap-1.5 ${filterArea !== "all" ? "border-primary text-primary" : ""}`}>
+            <SelectTrigger className={`flex-1 min-w-[9rem] gap-1.5 ${filterArea !== "all" ? "border-primary text-primary" : ""}`}>
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <SelectValue placeholder="All Areas" />
             </SelectTrigger>
@@ -230,7 +230,7 @@ export default function CustomersPage() {
             </SelectContent>
           </Select>
           <Select value={filterCity} onValueChange={setFilterCity}>
-            <SelectTrigger className={`w-44 shrink-0 gap-1.5 ${filterCity !== "all" ? "border-primary text-primary" : ""}`}>
+            <SelectTrigger className={`flex-1 min-w-[9rem] gap-1.5 ${filterCity !== "all" ? "border-primary text-primary" : ""}`}>
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <SelectValue placeholder="All Cities" />
             </SelectTrigger>
@@ -239,17 +239,19 @@ export default function CustomersPage() {
               {uniqueCities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          {(filterArea !== "all" || filterCity !== "all") && (
-            <button
-              onClick={() => { setFilterArea("all"); setFilterCity("all"); }}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2"
-            >
-              <X className="w-3.5 h-3.5" /> Clear filters
-            </button>
-          )}
-          <p className="text-xs text-muted-foreground self-center ml-auto">
-            {filtered.length} of {customers.length} customers
-          </p>
+          <div className="flex items-center gap-2 ml-auto">
+            {(filterArea !== "all" || filterCity !== "all") && (
+              <button
+                onClick={() => { setFilterArea("all"); setFilterCity("all"); }}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {filtered.length} of {customers.length}
+            </p>
+          </div>
         </div>
 
         {loading ? (

@@ -126,7 +126,7 @@ export default function FinanceDetailPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="p-6 max-w-2xl mx-auto space-y-4">
+        <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4">
           <Skeleton className="h-8 w-32" />
           <Skeleton className="h-32 w-full rounded-xl" />
           <Skeleton className="h-48 w-full rounded-xl" />
@@ -138,7 +138,7 @@ export default function FinanceDetailPage() {
   if (notFound || !tx) {
     return (
       <Layout>
-        <div className="p-6 max-w-2xl mx-auto text-center py-20">
+        <div className="p-4 sm:p-6 max-w-2xl mx-auto text-center py-20">
           <Receipt className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
           <h2 className="text-lg font-semibold">Transaction not found</h2>
           <p className="text-sm text-muted-foreground mt-1">This transaction may have been deleted.</p>
@@ -159,7 +159,7 @@ export default function FinanceDetailPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
 
         {/* Back nav */}
         <button

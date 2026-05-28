@@ -149,7 +149,7 @@ export default function InvoiceEditPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate(`/invoices/${id}`)} className="p-2 rounded-lg hover:bg-muted transition-colors">
             <ArrowLeft className="w-4 h-4" />

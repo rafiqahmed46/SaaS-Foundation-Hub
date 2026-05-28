@@ -351,7 +351,7 @@ export default function QuotationDetailPage() {
 
   if (loading) return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
         <Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" />
       </div>
     </Layout>
@@ -370,7 +370,7 @@ export default function QuotationDetailPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/quotations")} className="p-2 rounded-lg hover:bg-muted transition-colors">

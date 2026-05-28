@@ -141,7 +141,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="p-6 max-w-3xl mx-auto space-y-6">
+        <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-64 w-full rounded-xl" />
           <Skeleton className="h-40 w-full rounded-xl" />
@@ -152,7 +152,7 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Settings</h1>

@@ -271,7 +271,7 @@ export default function TasksPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
@@ -284,19 +284,21 @@ export default function TasksPage() {
 
         {/* Filter tabs + Sort */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-            {(["all", "todo", "in-progress", "done"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                  filter === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {s === "all" ? "All" : STATUS_CONFIG[s].label}
-                <span className="ml-1.5 text-xs opacity-60">{counts[s]}</span>
-              </button>
-            ))}
+          <div className="overflow-x-auto pb-0.5">
+            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit min-w-max">
+              {(["all", "todo", "in-progress", "done"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
+                    filter === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {s === "all" ? "All" : STATUS_CONFIG[s].label}
+                  <span className="ml-1.5 text-xs opacity-60">{counts[s]}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

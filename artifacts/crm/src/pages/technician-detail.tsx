@@ -154,14 +154,14 @@ export default function TechnicianDetailPage() {
   );
 
   if (loading) return (
-    <Layout><div className="p-6 max-w-4xl mx-auto space-y-5">
+    <Layout><div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       <Skeleton className="h-7 w-32" /><Skeleton className="h-44 w-full rounded-xl" />
       <div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
     </div></Layout>
   );
 
   if (!technician) return (
-    <Layout><div className="p-6 max-w-4xl mx-auto text-center py-20">
+    <Layout><div className="p-4 sm:p-6 max-w-4xl mx-auto text-center py-20">
       <Wrench className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
       <h2 className="font-semibold text-lg">Technician not found</h2>
       <Button variant="outline" onClick={() => navigate("/technicians")} className="mt-4">Back to Technicians</Button>
@@ -172,7 +172,7 @@ export default function TechnicianDetailPage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
         <button onClick={() => navigate("/technicians")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Technicians
         </button>
