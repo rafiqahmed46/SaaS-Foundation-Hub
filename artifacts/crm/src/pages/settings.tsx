@@ -599,6 +599,14 @@ export default function SettingsPage() {
           </Card>
         </div>
 
+        {/* Legal */}
+        <div className="mt-6 rounded-lg border border-border bg-muted/30 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="text-xs font-medium text-muted-foreground">Legal</span>
+          <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">Terms of Service</a>
+          <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">Privacy Policy</a>
+          <a href="/refund" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">Refund Policy</a>
+        </div>
+
         {/* Save at bottom on mobile */}
         <div className="mt-6 sm:hidden">
           <Button onClick={handleSave} disabled={saving} className="w-full gap-2" data-testid="button-save-settings-mobile">

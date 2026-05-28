@@ -211,6 +211,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             <LogOut className="w-4 h-4" /> Sign out
           </Button>
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-sidebar-border/50">
+            <Link href="/terms" onClick={() => setMobileOpen(false)} className="text-[10px] text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors">Terms</Link>
+            <Link href="/privacy" onClick={() => setMobileOpen(false)} className="text-[10px] text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors">Privacy</Link>
+            <Link href="/refund" onClick={() => setMobileOpen(false)} className="text-[10px] text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors">Refunds</Link>
+            <Link href="/pricing" onClick={() => setMobileOpen(false)} className="text-[10px] text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors ml-auto">Pricing</Link>
+          </div>
         </div>
       </div>
     );
