@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Plus, Search, Pencil, Trash2, MapPin, Users, ExternalLink, X } from "lucide-react";
+import { ArrowUpDown, Plus, Search, Pencil, Trash2, MapPin, Users, ExternalLink, X, Download } from "lucide-react";
 import PhoneActionButtons from "@/components/PhoneActionButtons";
 
 type SortKey = "name-asc" | "name-desc" | "newest" | "oldest";
@@ -175,6 +175,20 @@ export default function CustomersPage() {
       return (b.createdAt || "").localeCompare(a.createdAt || ""); // newest
     });
 
+  function exportCSV() {
+    const rows = [
+      ["Name", "Email", "Phone", "Area", "City", "Address", "Notes"],
+      ...customers.map((c) => [
+        c.name, c.email, getCustomerPhones(c)[0] || "", c.area || "", c.city || "", c.address || "", c.notes || "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   return (
     <Layout>
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -185,10 +199,15 @@ export default function CustomersPage() {
               {customers.length} {customers.length === 1 ? "customer" : "customers"} total
             </p>
           </div>
-          <Button onClick={openAdd} className="gap-2 shrink-0" data-testid="button-add-customer">
-            <Plus className="w-4 h-4" />
-            Add Customer
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={exportCSV} className="gap-2" disabled={customers.length === 0} data-testid="button-export-customers">
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+            <Button onClick={openAdd} className="gap-2" data-testid="button-add-customer">
+              <Plus className="w-4 h-4" />
+              Add Customer
+            </Button>
+          </div>
         </div>
 
         {/* Search + Sort row */}

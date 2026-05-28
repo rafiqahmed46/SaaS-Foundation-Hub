@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import Layout from "@/components/Layout";
-import { getInvoice, getSettings, updateInvoice, syncInvoiceIncome, Invoice, Settings } from "@/lib/firestore";
+import {
+  getInvoice, getSettings, updateInvoice, syncInvoiceIncome, Invoice, Settings,
+  getPaymentsByInvoice, addPayment, deletePayment, Payment, PaymentMethod,
+} from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Building2, Receipt, Palette, Pencil, Eye, ChevronDown, MessageCircle } from "lucide-react";
+import { ArrowLeft, Download, Building2, Receipt, Palette, Pencil, Eye, ChevronDown, MessageCircle, Plus, Trash2, Link2, CreditCard, CheckCircle2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -42,33 +48,92 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [pdfThemeId, setPdfThemeId] = useState<string>(
     () => localStorage.getItem("invoicePdfTheme") || "blue"
   );
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payRef, setPayRef] = useState("");
+  const [savingPay, setSavingPay] = useState(false);
+  const [deletePayId, setDeletePayId] = useState<string | null>(null);
 
   function selectTheme(id: string) {
     setPdfThemeId(id);
     localStorage.setItem("invoicePdfTheme", id);
   }
 
-  useEffect(() => {
+  async function loadInvoice() {
     if (!id) return;
-    async function load() {
-      try {
-        const [inv, sett] = await Promise.all([
-          getInvoice(id!),
-          user?.companyId ? getSettings(user.companyId) : Promise.resolve(null),
-        ]);
-        setInvoice(inv);
-        setSettings(sett);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const [inv, sett, pays] = await Promise.all([
+        getInvoice(id),
+        user?.companyId ? getSettings(user.companyId) : Promise.resolve(null),
+        getPaymentsByInvoice(id),
+      ]);
+      setInvoice(inv);
+      setSettings(sett);
+      setPayments(pays);
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, [id, user?.companyId]);
+  }
+
+  useEffect(() => { loadInvoice(); }, [id, user?.companyId]);
+
+  async function handleLogPayment() {
+    if (!id || !invoice || !user?.companyId) return;
+    const amt = parseFloat(payAmount);
+    if (!amt || amt <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    setSavingPay(true);
+    try {
+      await addPayment({
+        companyId: user.companyId,
+        invoiceId: id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        amount: amt,
+        currency: invoice.currency || settings?.currency || "AED",
+        method: payMethod,
+        date: payDate,
+        reference: payRef || undefined,
+      });
+      const newPaid = (invoice.amountPaid || 0) + amt;
+      await updateInvoice(id, { amountPaid: newPaid });
+      if (newPaid >= invoice.total && invoice.status !== "paid") {
+        await updateInvoice(id, { status: "paid" });
+        await syncInvoiceIncome({ companyId: user.companyId, invoiceId: id, invoiceNumber: invoice.invoiceNumber, customerName: invoice.customerName, total: invoice.total, currency: invoice.currency, date: payDate });
+        toast({ title: "Payment recorded — invoice marked as Paid" });
+      } else {
+        toast({ title: "Payment recorded" });
+      }
+      setPayAmount(""); setPayRef("");
+      loadInvoice();
+    } catch { toast({ title: "Could not record payment", variant: "destructive" }); }
+    finally { setSavingPay(false); }
+  }
+
+  async function handleDeletePayment() {
+    if (!deletePayId || !invoice || !id) return;
+    const pay = payments.find((p) => p.id === deletePayId);
+    if (!pay) return;
+    try {
+      await deletePayment(deletePayId);
+      const newPaid = Math.max(0, (invoice.amountPaid || 0) - pay.amount);
+      await updateInvoice(id, { amountPaid: newPaid });
+      toast({ title: "Payment removed" }); setDeletePayId(null); loadInvoice();
+    } catch { toast({ title: "Could not remove payment", variant: "destructive" }); }
+  }
+
+  function copyPortalLink() {
+    const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+    navigator.clipboard.writeText(`${base}/portal/${id}`);
+    toast({ title: "Portal link copied to clipboard" });
+  }
 
   async function handleStatusChange(newStatus: string) {
     if (!id || !invoice) return;
@@ -621,6 +686,10 @@ export default function InvoiceDetailPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={copyPortalLink} className="gap-2" title="Copy public portal link">
+              <Link2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Portal Link</span>
+            </Button>
             <Button variant="outline" onClick={() => navigate(`/invoices/${id}/edit`)} className="gap-2">
               <Pencil className="w-4 h-4" />
               Edit
@@ -770,6 +839,98 @@ export default function InvoiceDetailPage() {
               </div>
             )}
 
+            {/* Partial Payments */}
+            <div className="mt-8 pt-6 border-t">
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold text-base">Payments</h3>
+                {payments.length > 0 && (
+                  <span className="ml-auto text-sm text-muted-foreground">
+                    Paid: <span className="font-semibold text-foreground">{currSymbol} {(invoice.amountPaid || 0).toFixed(2)}</span>
+                    {" · "}Balance:{" "}
+                    <span className={`font-semibold ${(invoice.total - (invoice.amountPaid || 0)) <= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {currSymbol} {Math.max(0, invoice.total - (invoice.amountPaid || 0)).toFixed(2)}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* Payment history */}
+              {payments.length > 0 && (
+                <div className="mb-4 rounded-lg border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/40 border-b">
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Method</th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">Reference</th>
+                        <th className="text-right px-3 py-2 font-medium text-muted-foreground">Amount</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {payments.map((p) => (
+                        <tr key={p.id} className="hover:bg-muted/20">
+                          <td className="px-3 py-2">{new Date(p.date).toLocaleDateString("en-GB")}</td>
+                          <td className="px-3 py-2 capitalize">{p.method}</td>
+                          <td className="px-3 py-2 hidden sm:table-cell text-muted-foreground">{p.reference || "—"}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-green-700">{currSymbol} {p.amount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button onClick={() => setDeletePayId(p.id)} className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Fully paid badge */}
+              {invoice.amountPaid != null && invoice.amountPaid >= invoice.total ? (
+                <div className="flex items-center gap-2 text-green-700 bg-green-50 rounded-lg px-4 py-3 text-sm font-medium">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Invoice fully paid
+                </div>
+              ) : (
+                /* Log payment form */
+                <div className="rounded-lg border p-4 bg-muted/20">
+                  <p className="text-sm font-medium mb-3">Log a Payment</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Amount ({currency})</Label>
+                      <Input type="number" min="0" step="0.01" placeholder="0.00" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Method</Label>
+                      <Select value={payMethod} onValueChange={(v) => setPayMethod(v as PaymentMethod)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                          <SelectItem value="cheque">Cheque</SelectItem>
+                          <SelectItem value="card">Card</SelectItem>
+                          <SelectItem value="online">Online</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Date</Label>
+                      <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Reference (optional)</Label>
+                      <Input placeholder="Chq no., ref..." value={payRef} onChange={(e) => setPayRef(e.target.value)} />
+                    </div>
+                  </div>
+                  <Button size="sm" className="mt-3 gap-2" onClick={handleLogPayment} disabled={savingPay}>
+                    <Plus className="w-3.5 h-3.5" /> {savingPay ? "Saving..." : "Record Payment"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Receipt prompt */}
             <div className="mt-6 pt-6 border-t flex items-center gap-3 bg-blue-50 rounded-xl px-4 py-3">
               <Receipt className="w-5 h-5 shrink-0 text-blue-600" />
@@ -800,6 +961,18 @@ export default function InvoiceDetailPage() {
           </CardContent>
         </Card>
       </div>
+      <AlertDialog open={!!deletePayId} onOpenChange={(open) => !open && setDeletePayId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Payment</AlertDialogTitle>
+            <AlertDialogDescription>This will reverse the payment record and adjust the amount paid. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePayment} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

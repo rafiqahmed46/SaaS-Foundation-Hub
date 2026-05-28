@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckSquare, Pencil, Trash2, Clock, CheckCircle2, AlertTriangle, User, Wrench, UserCheck, X, MapPin, ArrowUpDown } from "lucide-react";
+import { Plus, CheckSquare, Pencil, Trash2, Clock, CheckCircle2, AlertTriangle, User, Wrench, UserCheck, X, MapPin, ArrowUpDown, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
@@ -269,6 +269,21 @@ export default function TasksPage() {
   const allSelected = filtered.length > 0 && selectedIds.size === filtered.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
 
+  function exportCSV() {
+    const rows = [
+      ["Title", "Status", "Priority", "Customer", "Assigned To", "Due Date", "Description"],
+      ...tasks.map((t) => [
+        t.title, t.status, t.priority, t.customerName || "", t.assignedToName || "",
+        t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "", t.description || "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `tasks-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   return (
     <Layout>
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -277,9 +292,14 @@ export default function TasksPage() {
             <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{counts.all} total · {counts.todo} to do · {counts["in-progress"]} in progress · {counts.done} done</p>
           </div>
-          <Button onClick={openAdd} className="gap-2 shrink-0">
-            <Plus className="w-4 h-4" /> New Task
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={exportCSV} className="gap-2" disabled={tasks.length === 0} data-testid="button-export-tasks">
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+            <Button onClick={openAdd} className="gap-2">
+              <Plus className="w-4 h-4" /> New Task
+            </Button>
+          </div>
         </div>
 
         {/* Filter tabs + Sort */}

@@ -86,10 +86,7 @@ export async function getCustomerVisits(customerId: string): Promise<CustomerVis
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
-export async function addCustomerVisit(
-  customerId: string,
-  data: Omit<CustomerVisit, "id">
-) {
+export async function addCustomerVisit(customerId: string, data: Omit<CustomerVisit, "id">) {
   return addDoc(collection(db, "customers", customerId, "visits"), data);
 }
 
@@ -118,6 +115,7 @@ export interface Invoice {
   discountValue?: number;
   discountAmount?: number;
   total: number;
+  amountPaid?: number;
   currency?: string;
   notes?: string;
   dueDate?: string;
@@ -147,6 +145,262 @@ export async function updateInvoice(id: string, data: Partial<Invoice>) {
 
 export async function deleteInvoice(id: string) {
   return deleteDoc(doc(db, "invoices", id));
+}
+
+// ── Payment (partial payments on invoices) ───────────────────────────────────
+
+export type PaymentMethod = "cash" | "bank_transfer" | "cheque" | "card" | "online" | "other";
+
+export interface Payment {
+  id: string;
+  companyId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  currency?: string;
+  method: PaymentMethod;
+  date: string;
+  reference?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export async function getPayments(companyId: string): Promise<Payment[]> {
+  const q = query(collection(db, "payments"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+}
+
+export async function getPaymentsByInvoice(invoiceId: string): Promise<Payment[]> {
+  const q = query(collection(db, "payments"), where("invoiceId", "==", invoiceId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+}
+
+export async function addPayment(data: Omit<Payment, "id" | "createdAt">) {
+  return addDoc(collection(db, "payments"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+}
+
+export async function deletePayment(id: string) {
+  return deleteDoc(doc(db, "payments", id));
+}
+
+// ── Asset / Equipment ─────────────────────────────────────────────────────────
+
+export interface Asset {
+  id: string;
+  companyId: string;
+  customerId: string;
+  customerName: string;
+  name: string;
+  type?: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  installDate?: string;
+  warrantyExpiry?: string;
+  location?: string;
+  notes?: string;
+  status: "active" | "inactive";
+  lastServiceDate?: string;
+  nextServiceDate?: string;
+  createdAt: string;
+}
+
+export async function getAssets(companyId: string): Promise<Asset[]> {
+  const q = query(collection(db, "assets"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+}
+
+export async function getAssetsByCustomer(companyId: string, customerId: string): Promise<Asset[]> {
+  const q = query(collection(db, "assets"), where("companyId", "==", companyId), where("customerId", "==", customerId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+}
+
+export async function getAsset(id: string): Promise<Asset | null> {
+  const snap = await getDoc(doc(db, "assets", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Asset;
+}
+
+export async function addAsset(data: Omit<Asset, "id" | "createdAt">) {
+  return addDoc(collection(db, "assets"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+}
+
+export async function updateAsset(id: string, data: Partial<Asset>) {
+  return updateDoc(doc(db, "assets", id), stripUndefined(data as Record<string, unknown>));
+}
+
+export async function deleteAsset(id: string) {
+  return deleteDoc(doc(db, "assets", id));
+}
+
+// ── Work Order ────────────────────────────────────────────────────────────────
+
+export interface WorkOrderPart {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface WorkOrder {
+  id: string;
+  companyId: string;
+  workOrderNumber: string;
+  title: string;
+  description?: string;
+  customerId?: string;
+  customerName?: string;
+  assetId?: string;
+  assetName?: string;
+  assignedTo?: string;
+  assignedToName?: string;
+  status: "pending" | "in-progress" | "completed" | "cancelled";
+  priority: "low" | "medium" | "high";
+  scheduledDate?: string;
+  completedDate?: string;
+  parts: WorkOrderPart[];
+  laborHours?: number;
+  laborRate?: number;
+  totalPartsAmount?: number;
+  totalAmount?: number;
+  notes?: string;
+  technicianNotes?: string;
+  customerSignature?: string;
+  feedbackRating?: number;
+  feedbackNote?: string;
+  invoiceId?: string;
+  contractId?: string;
+  createdAt: string;
+}
+
+export async function getWorkOrders(companyId: string): Promise<WorkOrder[]> {
+  const q = query(collection(db, "workOrders"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder)).sort(byCreatedAtDesc);
+}
+
+export async function getWorkOrder(id: string): Promise<WorkOrder | null> {
+  const snap = await getDoc(doc(db, "workOrders", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as WorkOrder;
+}
+
+export async function addWorkOrder(data: Omit<WorkOrder, "id" | "createdAt">) {
+  return addDoc(collection(db, "workOrders"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+}
+
+export async function updateWorkOrder(id: string, data: Partial<WorkOrder>) {
+  return updateDoc(doc(db, "workOrders", id), stripUndefined(data as Record<string, unknown>));
+}
+
+export async function deleteWorkOrder(id: string) {
+  return deleteDoc(doc(db, "workOrders", id));
+}
+
+export async function getNextWorkOrderNumber(companyId: string): Promise<string> {
+  const q = query(collection(db, "workOrders"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return `WO-${String(snap.size + 1).padStart(4, "0")}`;
+}
+
+// ── AMC Contract ──────────────────────────────────────────────────────────────
+
+export interface ContractVisit {
+  id: string;
+  date: string;
+  notes?: string;
+  technicianName?: string;
+  workOrderId?: string;
+}
+
+export interface Contract {
+  id: string;
+  companyId: string;
+  contractNumber: string;
+  customerId: string;
+  customerName: string;
+  title: string;
+  description?: string;
+  type: "amc" | "warranty" | "rental" | "service";
+  status: "active" | "expired" | "pending" | "cancelled";
+  startDate: string;
+  endDate: string;
+  value: number;
+  currency?: string;
+  visitsIncluded: number;
+  visitsUsed: number;
+  visits: ContractVisit[];
+  autoRenew?: boolean;
+  notes?: string;
+  invoiceId?: string;
+  createdAt: string;
+}
+
+export async function getContracts(companyId: string): Promise<Contract[]> {
+  const q = query(collection(db, "contracts"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Contract)).sort(byCreatedAtDesc);
+}
+
+export async function getContract(id: string): Promise<Contract | null> {
+  const snap = await getDoc(doc(db, "contracts", id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Contract;
+}
+
+export async function addContract(data: Omit<Contract, "id" | "createdAt">) {
+  return addDoc(collection(db, "contracts"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+}
+
+export async function updateContract(id: string, data: Partial<Contract>) {
+  return updateDoc(doc(db, "contracts", id), stripUndefined(data as Record<string, unknown>));
+}
+
+export async function deleteContract(id: string) {
+  return deleteDoc(doc(db, "contracts", id));
+}
+
+export async function getNextContractNumber(companyId: string): Promise<string> {
+  const q = query(collection(db, "contracts"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return `CON-${String(snap.size + 1).padStart(4, "0")}`;
+}
+
+// ── Team Invite ───────────────────────────────────────────────────────────────
+
+export type TeamRole = "admin" | "manager" | "technician" | "viewer";
+
+export interface TeamInvite {
+  id: string;
+  companyId: string;
+  email: string;
+  role: TeamRole;
+  status: "pending" | "accepted" | "cancelled";
+  invitedBy: string;
+  createdAt: string;
+}
+
+export async function getTeamInvites(companyId: string): Promise<TeamInvite[]> {
+  const q = query(collection(db, "teamInvites"), where("companyId", "==", companyId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamInvite)).sort(byCreatedAtDesc);
+}
+
+export async function addTeamInvite(data: Omit<TeamInvite, "id" | "createdAt">) {
+  return addDoc(collection(db, "teamInvites"), { ...data, createdAt: new Date().toISOString() });
+}
+
+export async function updateTeamInvite(id: string, data: Partial<TeamInvite>) {
+  return updateDoc(doc(db, "teamInvites", id), data as Record<string, unknown>);
+}
+
+export async function deleteTeamInvite(id: string) {
+  return deleteDoc(doc(db, "teamInvites", id));
 }
 
 // ── Quotation ─────────────────────────────────────────────────────────────────
@@ -247,6 +501,7 @@ export interface Technician {
   name: string;
   email: string;
   phone?: string;
+  phones?: string[];
   specialization?: string;
   status: "active" | "inactive";
   notes?: string;
@@ -289,7 +544,7 @@ export interface Transaction {
   type: "income" | "expense";
   category: string;
   amount: number;
-  date: string;        // YYYY-MM-DD
+  date: string;
   description: string;
   reference?: string;
   source?: "invoice" | "manual";
@@ -297,8 +552,6 @@ export interface Transaction {
   createdAt: string;
 }
 
-// Creates or overwrites an income transaction tied to a paid invoice.
-// Uses a deterministic doc ID (inv_<invoiceId>) so it's idempotent.
 export async function syncInvoiceIncome(params: {
   companyId: string;
   invoiceId: string;
@@ -351,15 +604,19 @@ export async function deleteTransaction(id: string) {
 
 // ── Roles & Permissions ───────────────────────────────────────────────────────
 
-export type ModuleKey = "dashboard" | "customers" | "quotations" | "invoices" | "finance" | "tasks" | "technicians" | "settings";
+export type ModuleKey =
+  | "dashboard" | "customers" | "quotations" | "invoices"
+  | "finance" | "tasks" | "technicians" | "settings"
+  | "work-orders" | "assets" | "contracts" | "reports" | "calendar";
+
 export type RoleKey = "admin" | "manager" | "technician" | "viewer";
 export type RolePermissions = Record<RoleKey, Record<ModuleKey, boolean>>;
 
 export const DEFAULT_PERMISSIONS: RolePermissions = {
-  admin:      { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: true  },
-  manager:    { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: false },
-  technician: { dashboard: false, customers: true,  quotations: false, invoices: false, finance: false, tasks: true,  technicians: false, settings: false },
-  viewer:     { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: false, tasks: false, technicians: false, settings: false },
+  admin:      { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: true,  "work-orders": true,  assets: true,  contracts: true,  reports: true,  calendar: true  },
+  manager:    { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: true,  tasks: true,  technicians: true,  settings: false, "work-orders": true,  assets: true,  contracts: true,  reports: true,  calendar: true  },
+  technician: { dashboard: false, customers: true,  quotations: false, invoices: false, finance: false, tasks: true,  technicians: false, settings: false, "work-orders": true,  assets: true,  contracts: false, reports: false, calendar: true  },
+  viewer:     { dashboard: true,  customers: true,  quotations: true,  invoices: true,  finance: false, tasks: false, technicians: false, settings: false, "work-orders": false, assets: true,  contracts: true,  reports: true,  calendar: false },
 };
 
 // ── Settings ──────────────────────────────────────────────────────────────────

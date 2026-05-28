@@ -25,6 +25,15 @@ import SettingsPage from "@/pages/settings";
 import ImportPage from "@/pages/import";
 import TechniciansPage from "@/pages/technicians";
 import TechnicianDetailPage from "@/pages/technician-detail";
+import WorkOrdersPage from "@/pages/work-orders";
+import WorkOrderDetailPage from "@/pages/work-order-detail";
+import AssetsPage from "@/pages/assets";
+import AssetDetailPage from "@/pages/asset-detail";
+import ContractsPage from "@/pages/contracts";
+import ContractDetailPage from "@/pages/contract-detail";
+import ReportsPage from "@/pages/reports";
+import CalendarPage from "@/pages/calendar";
+import PortalPage from "@/pages/portal";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +85,15 @@ function Router() {
       <Route path="/technicians" component={() => <ProtectedRoute component={TechniciansPage} />} />
       <Route path="/finance/:id" component={() => <ProtectedRoute component={FinanceDetailPage} />} />
       <Route path="/finance" component={() => <ProtectedRoute component={FinancePage} />} />
+      <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetailPage} />} />
+      <Route path="/work-orders" component={() => <ProtectedRoute component={WorkOrdersPage} />} />
+      <Route path="/assets/:id" component={() => <ProtectedRoute component={AssetDetailPage} />} />
+      <Route path="/assets" component={() => <ProtectedRoute component={AssetsPage} />} />
+      <Route path="/contracts/:id" component={() => <ProtectedRoute component={ContractDetailPage} />} />
+      <Route path="/contracts" component={() => <ProtectedRoute component={ContractsPage} />} />
+      <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
+      <Route path="/calendar" component={() => <ProtectedRoute component={CalendarPage} />} />
+      <Route path="/portal/:invoiceId" component={PortalPage} />
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route component={NotFound} />

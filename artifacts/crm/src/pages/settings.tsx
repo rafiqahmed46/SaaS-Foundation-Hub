@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { getSettings, saveSettings, Settings } from "@/lib/firestore";
+import {
+  getSettings, saveSettings, Settings,
+  getTeamInvites, addTeamInvite, deleteTeamInvite, TeamInvite, TeamRole,
+  DEFAULT_PERMISSIONS, RolePermissions, ModuleKey, RoleKey,
+} from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X, ShieldCheck } from "lucide-react";
-import { DEFAULT_PERMISSIONS, RolePermissions, ModuleKey, RoleKey } from "@/lib/firestore";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Building2, Save, Percent, Tag, Globe, CreditCard, Upload, X, ShieldCheck, Users, Mail, Trash2, Clock, CheckCircle2, Plus } from "lucide-react";
 
 const CURRENCIES = [
   { value: "AED", label: "AED — UAE Dirham (AED)" },
@@ -67,19 +71,57 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Team management
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<TeamRole>("technician");
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [deleteInviteId, setDeleteInviteId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user?.companyId) return;
     async function load() {
       try {
-        const sett = await getSettings(user!.companyId!);
+        const [sett, inv] = await Promise.all([
+          getSettings(user!.companyId!),
+          getTeamInvites(user!.companyId!),
+        ]);
         setSettings(sett || DEFAULT_SETTINGS);
         if (sett?.rolePermissions) setRolePerms(sett.rolePermissions);
+        setInvites(inv);
       } finally {
         setLoading(false);
       }
     }
     load();
   }, [user?.companyId]);
+
+  async function handleSendInvite() {
+    if (!user?.companyId) return;
+    if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
+      toast({ title: "Enter a valid email address", variant: "destructive" }); return;
+    }
+    setSendingInvite(true);
+    try {
+      await addTeamInvite({ companyId: user.companyId, email: inviteEmail.trim().toLowerCase(), role: inviteRole, status: "pending", invitedBy: user.uid || "" });
+      toast({ title: "Invite created", description: "Share the login link with your team member." });
+      setInviteEmail("");
+      const updated = await getTeamInvites(user.companyId);
+      setInvites(updated);
+    } catch { toast({ title: "Could not create invite", variant: "destructive" }); }
+    finally { setSendingInvite(false); }
+  }
+
+  async function handleDeleteInvite() {
+    if (!deleteInviteId || !user?.companyId) return;
+    try {
+      await deleteTeamInvite(deleteInviteId);
+      setDeleteInviteId(null);
+      const updated = await getTeamInvites(user.companyId);
+      setInvites(updated);
+      toast({ title: "Invite removed" });
+    } catch { toast({ title: "Could not remove invite", variant: "destructive" }); }
+  }
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -343,6 +385,98 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Team Management */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                <CardTitle className="text-base">Team Management</CardTitle>
+              </div>
+              <CardDescription>Invite team members by email. They sign up and are linked to your company.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Invite form */}
+              <div className="rounded-lg border p-4 bg-muted/20">
+                <p className="text-sm font-medium mb-3">Invite a Team Member</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="colleague@company.ae"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-invite-email"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSendInvite(); }}
+                    />
+                  </div>
+                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as TeamRole)}>
+                    <SelectTrigger className="w-36" data-testid="select-invite-role"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="technician">Technician</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleSendInvite} disabled={sendingInvite} className="gap-2 shrink-0" data-testid="button-send-invite">
+                    <Plus className="w-4 h-4" /> {sendingInvite ? "Saving..." : "Add Invite"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">After adding, share your app link. The team member signs up and is auto-linked when their email matches a pending invite.</p>
+              </div>
+
+              {/* Invite list */}
+              {invites.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg border-dashed">
+                  No team invites yet. Add your first team member above.
+                </div>
+              ) : (
+                <div className="rounded-lg border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/40 border-b">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Email</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Role</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
+                        <th className="px-4 py-2.5"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {invites.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-medium">{inv.email}</td>
+                          <td className="px-4 py-3 capitalize text-muted-foreground">{inv.role}</td>
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            {inv.status === "accepted" ? (
+                              <span className="inline-flex items-center gap-1 text-green-700 text-xs font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Accepted
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-600 text-xs font-medium">
+                                <Clock className="w-3.5 h-3.5" /> Pending
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setDeleteInviteId(inv.id)}
+                              className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              data-testid={`button-delete-invite-${inv.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Roles & Permissions */}
           <Card>
             <CardHeader>
@@ -361,14 +495,19 @@ export default function SettingsPage() {
                   { key: "viewer",     label: "Viewer"     },
                 ];
                 const modules: { key: ModuleKey; label: string }[] = [
-                  { key: "dashboard",   label: "Dashboard"   },
-                  { key: "customers",   label: "Customers"   },
-                  { key: "quotations",  label: "Quotations"  },
-                  { key: "invoices",    label: "Invoices"    },
-                  { key: "finance",     label: "Finance"     },
-                  { key: "tasks",       label: "Tasks"       },
-                  { key: "technicians", label: "Technicians" },
-                  { key: "settings",    label: "Settings"    },
+                  { key: "dashboard",    label: "Dashboard"    },
+                  { key: "customers",    label: "Customers"    },
+                  { key: "quotations",   label: "Quotations"   },
+                  { key: "invoices",     label: "Invoices"     },
+                  { key: "finance",      label: "Finance"      },
+                  { key: "tasks",        label: "Tasks"        },
+                  { key: "work-orders",  label: "Work Orders"  },
+                  { key: "assets",       label: "Assets"       },
+                  { key: "contracts",    label: "Contracts"    },
+                  { key: "reports",      label: "Reports"      },
+                  { key: "calendar",     label: "Calendar"     },
+                  { key: "technicians",  label: "Technicians"  },
+                  { key: "settings",     label: "Settings"     },
                 ];
                 return (
                   <div className="overflow-x-auto">
@@ -386,7 +525,7 @@ export default function SettingsPage() {
                             {roles.map((role) => (
                               <td key={role.key} className="py-2.5 px-3 text-center">
                                 <Switch
-                                  checked={rolePerms[role.key]?.[mod.key] ?? DEFAULT_PERMISSIONS[role.key][mod.key]}
+                                  checked={rolePerms[role.key]?.[mod.key] ?? DEFAULT_PERMISSIONS[role.key][mod.key] ?? false}
                                   onCheckedChange={(v) => setRolePerms((prev) => ({
                                     ...prev,
                                     [role.key]: { ...prev[role.key], [mod.key]: v },
@@ -427,6 +566,20 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Delete invite dialog */}
+      <AlertDialog open={!!deleteInviteId} onOpenChange={(open) => !open && setDeleteInviteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Invite</AlertDialogTitle>
+            <AlertDialogDescription>This will remove the team invite. The team member will lose access if they haven't signed up yet.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInvite} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Eye, Trash2, FileText } from "lucide-react";
+import { Plus, Search, Eye, Trash2, FileText, Download } from "lucide-react";
 import { getSettings } from "@/lib/firestore";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -79,6 +79,27 @@ export default function InvoicesPage() {
       inv.status.toLowerCase().includes(search.toLowerCase())
   );
 
+  function exportCSV() {
+    const rows = [
+      ["Invoice #", "Customer", "Status", "Issued", "Due", "Subtotal", "Tax", "Discount", "Total", "Currency"],
+      ...invoices.map((inv) => [
+        inv.invoiceNumber, inv.customerName, inv.status,
+        new Date(inv.createdAt).toLocaleDateString("en-GB"),
+        inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-GB") : "",
+        inv.subtotal.toFixed(2),
+        (inv.taxAmount || 0).toFixed(2),
+        (inv.discountAmount || 0).toFixed(2),
+        inv.total.toFixed(2),
+        inv.currency || currency,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   return (
     <Layout>
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -89,10 +110,15 @@ export default function InvoicesPage() {
               {invoices.length} {invoices.length === 1 ? "invoice" : "invoices"} total
             </p>
           </div>
-          <Button onClick={() => navigate("/invoices/new")} className="gap-2 shrink-0" data-testid="button-create-invoice">
-            <Plus className="w-4 h-4" />
-            New Invoice
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={exportCSV} className="gap-2" disabled={invoices.length === 0} data-testid="button-export-invoices">
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+            <Button onClick={() => navigate("/invoices/new")} className="gap-2" data-testid="button-create-invoice">
+              <Plus className="w-4 h-4" />
+              New Invoice
+            </Button>
+          </div>
         </div>
 
         <div className="relative mb-5">
