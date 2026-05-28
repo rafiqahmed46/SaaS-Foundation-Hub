@@ -151,18 +151,22 @@ export default function PricingPage() {
     }
 
     setLoading(planId);
-    const baseUrl = window.location.origin + (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+    // Use full origin — must match an approved domain in Paddle dashboard
+    const successUrl = `${window.location.origin}/settings?subscription=success&plan=${planId}`;
     try {
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         customer: { email: user.email ?? "" },
-        customData: { companyId: String(user.companyId ?? user.uid), planId: String(planId) },
+        // customData values must all be strings for Paddle v1
+        customData: {
+          companyId: String(user.companyId ?? user.uid),
+          planId: String(planId),
+        },
         settings: {
-          successUrl: `${baseUrl}/settings?subscription=success&plan=${planId}`,
+          successUrl,
           displayMode: "overlay",
           theme: "light",
           locale: "en",
-          allowLogout: false,
         },
       });
     } catch (err: unknown) {
