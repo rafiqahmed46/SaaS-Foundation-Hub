@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -64,6 +65,7 @@ const DEFAULT_SETTINGS: Partial<Settings> = {
 };
 
 export default function SettingsPage() {
+  const [, navigate] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState<Partial<Settings>>(DEFAULT_SETTINGS);
@@ -168,6 +170,7 @@ export default function SettingsPage() {
     try {
       await saveSettings(user.companyId, { ...settings, rolePermissions: rolePerms } as Settings);
       toast({ title: "Settings saved" });
+      navigate("/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       if (code === "permission-denied") {
