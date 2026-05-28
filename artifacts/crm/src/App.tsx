@@ -36,6 +36,7 @@ import CalendarPage from "@/pages/calendar";
 import PortalPage from "@/pages/portal";
 import AdminPage from "@/pages/admin";
 import PricingPage from "@/pages/pricing";
+import UpgradePage from "@/pages/upgrade";
 import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import RefundPage from "@/pages/refund";
@@ -53,7 +54,18 @@ function Spinner() {
   );
 }
 
+// Full protection: must be logged in AND have an active subscription/trial
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, loading, isSubscribed } = useAuth();
+  if (loading) return <Spinner />;
+  if (!user) return <Redirect to="/login" />;
+  if (!isSubscribed) return <Redirect to="/upgrade" />;
+  return <Component />;
+}
+
+// Auth-only protection: must be logged in, no subscription check
+// Used for settings (billing tab) so users can subscribe after trial ends
+function AuthRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading } = useAuth();
   if (loading) return <Spinner />;
   if (!user) return <Redirect to="/login" />;
@@ -107,9 +119,11 @@ function Router() {
       <Route path="/contracts" component={() => <ProtectedRoute component={ContractsPage} />} />
       <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
       <Route path="/calendar" component={() => <ProtectedRoute component={CalendarPage} />} />
-      <Route path="/portal/:invoiceId" component={PortalPage} />
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
-      <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
+      {/* Settings uses AuthRoute so users can access billing tab even after trial ends */}
+      <Route path="/settings" component={() => <AuthRoute component={SettingsPage} />} />
+      <Route path="/upgrade" component={() => <AuthRoute component={UpgradePage} />} />
+      <Route path="/portal/:invoiceId" component={PortalPage} />
       <Route path="/admin" component={() => <AdminRoute component={AdminPage} />} />
       <Route path="/pricing" component={PricingPage} />
       <Route path="/terms" component={TermsPage} />

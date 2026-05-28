@@ -158,7 +158,7 @@ export default function PricingPage() {
         customer: { email: user.email ?? "" },
         customData: { companyId: String(user.companyId ?? user.uid), planId: String(planId) },
         settings: {
-          successUrl: `${baseUrl}/settings?subscription=success`,
+          successUrl: `${baseUrl}/settings?subscription=success&plan=${planId}`,
           displayMode: "overlay",
           theme: "light",
           locale: "en",

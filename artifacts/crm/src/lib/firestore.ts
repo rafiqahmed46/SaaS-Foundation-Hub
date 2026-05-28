@@ -808,3 +808,47 @@ export async function getNextInvoiceNumber(companyId: string, prefix: string): P
   const snap = await getCountFromServer(q);
   return `${prefix}${String(snap.data().count + 1).padStart(4, "0")}`;
 }
+
+// ── Subscription ──────────────────────────────────────────────────────────────
+
+export interface Subscription {
+  companyId: string;
+  status: "trialing" | "active" | "cancelled" | "paused";
+  plan: "starter" | "pro" | "business" | null;
+  trialEndsAt: string;
+  paddleSubscriptionId?: string;
+  currentPeriodEnd?: string;
+  cancelledAt?: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export async function getSubscription(companyId: string): Promise<Subscription | null> {
+  const key = `subscriptions:${companyId}`;
+  const cached = cacheGet<Subscription>(key);
+  if (cached) return cached;
+  const snap = await getDoc(doc(db, "subscriptions", companyId));
+  if (!snap.exists()) return null;
+  const result = { companyId, ...snap.data() } as Subscription;
+  cacheSet(key, result);
+  return result;
+}
+
+export async function saveSubscription(companyId: string, data: Partial<Omit<Subscription, "companyId" | "createdAt">>): Promise<void> {
+  await setDoc(doc(db, "subscriptions", companyId), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+  cacheInvalidate(`subscriptions:${companyId}`);
+}
+
+export async function createTrialSubscription(companyId: string): Promise<void> {
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  await setDoc(doc(db, "subscriptions", companyId), {
+    companyId,
+    status: "trialing",
+    plan: null,
+    trialEndsAt,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  });
+  cacheInvalidate(`subscriptions:${companyId}`);
+}

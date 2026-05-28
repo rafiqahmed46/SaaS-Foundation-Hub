@@ -6,6 +6,7 @@ import {
   getSettings, saveSettings, Settings,
   getTeamInvites, addTeamInvite, deleteTeamInvite, TeamInvite, TeamRole,
   DEFAULT_PERMISSIONS, RolePermissions, ModuleKey, RoleKey,
+  saveSubscription,
 } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,7 +67,8 @@ const DEFAULT_SETTINGS: Partial<Settings> = {
 
 export default function SettingsPage() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const search = useSearch();
+  const { user, subscription, isSubscribed, trialDaysLeft, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState<Partial<Settings>>(DEFAULT_SETTINGS);
   const [rolePerms, setRolePerms] = useState<RolePermissions>(DEFAULT_PERMISSIONS);
@@ -97,6 +99,28 @@ export default function SettingsPage() {
     }
     load();
   }, [user?.companyId]);
+
+  // Handle Paddle redirect after successful checkout
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get("subscription") !== "success" || !user?.companyId) return;
+    const planId = params.get("plan") as "starter" | "pro" | "business" | null;
+    async function activateSub() {
+      try {
+        await saveSubscription(user!.companyId!, {
+          status: "active",
+          plan: planId ?? "pro",
+        });
+        await refreshSubscription();
+        toast({ title: "Subscription activated!", description: `You now have full access to Marwo. Welcome aboard!` });
+        navigate("/settings", { replace: true });
+      } catch {
+        toast({ title: "Subscription recorded", description: "If you just paid, your access will be active shortly.", variant: "default" });
+      }
+    }
+    activateSub();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, user?.companyId]);
 
   async function handleSendInvite() {
     if (!user?.companyId) return;
@@ -581,20 +605,59 @@ export default function SettingsPage() {
               <CardDescription>Manage your Marwo subscription plan.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
-                <div>
-                  <p className="font-medium text-blue-900">Free Trial</p>
-                  <p className="text-sm text-blue-700 mt-0.5">You are currently on the free trial. Upgrade to keep full access.</p>
+              {subscription?.status === "active" ? (
+                <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-900 capitalize">
+                        {subscription.plan ?? "Pro"} Plan — Active
+                      </p>
+                      {subscription.currentPeriodEnd && (
+                        <p className="text-sm text-green-700 mt-0.5">
+                          Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <a href="/pricing">
+                    <button className="inline-flex items-center gap-2 rounded-md border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 transition-colors">
+                      Manage Plan
+                    </button>
+                  </a>
                 </div>
-                <a href="/pricing">
-                  <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                    <Zap className="w-4 h-4" /> View Plans
-                  </button>
-                </a>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                All plans include a 14-day free trial. No credit card required to start.
-              </p>
+              ) : subscription?.status === "trialing" && trialDaysLeft > 0 ? (
+                <div className="flex items-center justify-between rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
+                  <div>
+                    <p className="font-medium text-blue-900">Free Trial</p>
+                    <p className="text-sm text-blue-700 mt-0.5">
+                      {trialDaysLeft === 1 ? "1 day remaining" : `${trialDaysLeft} days remaining`} — upgrade to keep full access.
+                    </p>
+                  </div>
+                  <a href="/pricing">
+                    <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                      <Zap className="w-4 h-4" /> View Plans
+                    </button>
+                  </a>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-lg border border-dashed border-orange-300 bg-orange-50 p-4">
+                  <div>
+                    <p className="font-medium text-orange-900">Trial ended</p>
+                    <p className="text-sm text-orange-700 mt-0.5">Subscribe now to restore full access to your account.</p>
+                  </div>
+                  <a href="/pricing">
+                    <button className="inline-flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-colors">
+                      <Zap className="w-4 h-4" /> Subscribe
+                    </button>
+                  </a>
+                </div>
+              )}
+              {!isSubscribed && (
+                <p className="text-xs text-muted-foreground">
+                  All plans include a 14-day free trial. No credit card required to start.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

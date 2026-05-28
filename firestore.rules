@@ -2,85 +2,133 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper ────────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // ── Users — any signed-in user can read, only own document can be written ──
+    // NOTE: get() calls in rule evaluation do not count toward billing quota.
+    // They are necessary to enforce company-level data isolation.
+    function callerCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
+    }
+
+    function belongsToCallerCompany(data) {
+      return isSignedIn() && data.companyId == callerCompanyId();
+    }
+
+    // ── Users — own document only ─────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // ── Companies — authenticated users only ─────────────────────────────────
+    // ── Companies — own company only ──────────────────────────────────────────
     match /companies/{companyId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && callerCompanyId() == companyId;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && callerCompanyId() == companyId;
+      allow delete: if false;
     }
 
-    // ── Settings — authenticated users only ──────────────────────────────────
+    // ── Settings — own company only ───────────────────────────────────────────
     match /settings/{companyId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn() && callerCompanyId() == companyId;
     }
 
-    // ── All business collections — authenticated users only ──────────────────
+    // ── Subscriptions — own company only ─────────────────────────────────────
+    match /subscriptions/{companyId} {
+      allow read, write: if isSignedIn() && callerCompanyId() == companyId;
+    }
+
+    // ── Customers ─────────────────────────────────────────────────────────────
     match /customers/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Invoices — also readable publicly by document ID (portal access) ──────
     match /invoices/{docId} {
-      // Authenticated users: full access
-      allow read, write: if isSignedIn();
-      // Public (client portal): read-only by invoice ID — URL is the token
-      allow read: if true;
-      // Public can only update amountPaid and status (partial payment from portal)
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
+      // Public client portal: document ID is the bearer token
+      allow read: if !isSignedIn();
+      // Portal may only update amountPaid and status — nothing else
       allow update: if !isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["amountPaid", "status"]);
     }
 
+    // ── Payments ──────────────────────────────────────────────────────────────
     match /payments/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Quotations ────────────────────────────────────────────────────────────
     match /quotations/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Work Orders ───────────────────────────────────────────────────────────
     match /workOrders/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Assets ────────────────────────────────────────────────────────────────
     match /assets/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Contracts ─────────────────────────────────────────────────────────────
     match /contracts/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Tasks ─────────────────────────────────────────────────────────────────
     match /tasks/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Technicians ───────────────────────────────────────────────────────────
     match /technicians/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Transactions ──────────────────────────────────────────────────────────
     match /transactions/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
+    // ── Team Invites ──────────────────────────────────────────────────────────
     match /teamInvites/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if belongsToCallerCompany(resource.data);
+      allow create: if belongsToCallerCompany(request.resource.data);
+      allow update, delete: if belongsToCallerCompany(resource.data);
     }
 
-    // ── Admin config — public read (pricing page), authenticated write ────────
+    // ── Admin config — public read (pricing/promo), authenticated write ───────
     match /adminConfig/{docId} {
       allow read: if true;
       allow write: if isSignedIn();
     }
 
-    // ── Feedback — public write (from client portal), authenticated read ──────
+    // ── Feedback — public write (client portal), authenticated read ───────────
     match /feedback/{docId} {
       allow create: if true;
       allow read: if isSignedIn();
