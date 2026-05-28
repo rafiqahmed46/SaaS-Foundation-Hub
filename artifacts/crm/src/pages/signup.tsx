@@ -130,23 +130,34 @@ export default function SignupPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6">
+      <div className="flex-1 overflow-y-auto flex items-start justify-center p-5">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <MarwoMark size={32} />
-            <span className="text-lg font-bold">Marwo</span>
+          <div className="lg:hidden flex items-center gap-2 mb-4">
+            <MarwoMark size={28} />
+            <span className="text-base font-bold">Marwo</span>
           </div>
 
-          <div className="mb-8">
+          {/* Link bar — always visible at top on mobile */}
+          <p className="mb-4 text-center text-xs text-muted-foreground/60">
+            <Link href="/pricing" className="hover:underline text-primary/80 font-medium">Pricing</Link>
+            {" · "}
+            <Link href="/terms" className="hover:underline">Terms</Link>
+            {" · "}
+            <Link href="/privacy" className="hover:underline">Privacy</Link>
+            {" · "}
+            <Link href="/refund" className="hover:underline">Refunds</Link>
+          </p>
+
+          <div className="mb-5">
             <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
             <p className="mt-1 text-sm text-muted-foreground">Get started free — no credit card needed</p>
-            <div className="mt-3 inline-flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full">
+            <div className="mt-2 inline-flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               Free forever to start — upgrade only when you're ready
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {error && (
               <div className="px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm" data-testid="text-signup-error">
                 {error}
@@ -223,10 +234,10 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-muted-foreground/70">
-            By creating an account you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-foreground">Terms of Service</Link>
-            {" and "}
+          <p className="mt-4 text-center text-xs text-muted-foreground/60">
+            By signing up you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-foreground">Terms</Link>
+            {" & "}
             <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
           </p>
           <p className="mt-3 text-center text-sm text-muted-foreground">
@@ -234,6 +245,15 @@ export default function SignupPage() {
             <Link href="/login" className="text-primary hover:underline font-medium" data-testid="link-login">
               Sign in
             </Link>
+          </p>
+          <p className="mt-4 pb-6 text-center text-xs text-muted-foreground/60">
+            <Link href="/pricing" className="hover:underline text-primary/70">Pricing</Link>
+            {" · "}
+            <Link href="/terms" className="hover:underline">Terms</Link>
+            {" · "}
+            <Link href="/privacy" className="hover:underline">Privacy</Link>
+            {" · "}
+            <Link href="/refund" className="hover:underline">Refunds</Link>
           </p>
         </div>
       </div>
