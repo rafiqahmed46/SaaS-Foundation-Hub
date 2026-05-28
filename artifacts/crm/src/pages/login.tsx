@@ -148,6 +148,13 @@ export default function LoginPage() {
               Create one
             </Link>
           </p>
+          <p className="mt-4 text-center text-xs text-muted-foreground/60">
+            <Link href="/terms" className="hover:underline">Terms</Link>
+            {" · "}
+            <Link href="/privacy" className="hover:underline">Privacy</Link>
+            {" · "}
+            <Link href="/refund" className="hover:underline">Refunds</Link>
+          </p>
         </div>
       </div>
     </div>

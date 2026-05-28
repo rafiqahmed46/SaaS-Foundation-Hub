@@ -36,6 +36,9 @@ import CalendarPage from "@/pages/calendar";
 import PortalPage from "@/pages/portal";
 import AdminPage from "@/pages/admin";
 import PricingPage from "@/pages/pricing";
+import TermsPage from "@/pages/terms";
+import PrivacyPage from "@/pages/privacy";
+import RefundPage from "@/pages/refund";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +112,9 @@ function Router() {
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route path="/admin" component={() => <AdminRoute component={AdminPage} />} />
       <Route path="/pricing" component={PricingPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/refund" component={RefundPage} />
       <Route component={NotFound} />
     </Switch>
   );

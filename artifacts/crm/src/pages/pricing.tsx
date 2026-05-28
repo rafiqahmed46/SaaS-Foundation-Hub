@@ -259,6 +259,18 @@ export default function PricingPage() {
           ))}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 bg-white mt-8">
+        <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+          <span>© {new Date().getFullYear()} Marwo. All rights reserved. Payments processed by <a href="https://www.paddle.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">Paddle</a>.</span>
+          <div className="flex items-center gap-5">
+            <Link href="/terms" className="hover:text-gray-700 transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-gray-700 transition-colors">Privacy Policy</Link>
+            <Link href="/refund" className="hover:text-gray-700 transition-colors">Refund Policy</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
