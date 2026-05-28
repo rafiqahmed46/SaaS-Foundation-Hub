@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X,
   Building2, AlertTriangle, ExternalLink, ClipboardList, CheckSquare,
   RefreshCw, Upload, Wallet, Wrench, ClipboardCheck, Box,
-  FileCheck, BarChart3, CalendarDays, ChevronDown, ChevronRight,
+  FileCheck, BarChart3, CalendarDays, ChevronDown, ChevronRight, ShieldCheck,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -121,6 +121,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase();
+  const isAdmin = !!adminEmail && user?.email?.trim().toLowerCase() === adminEmail;
+
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => {
     const filteredNav = ALL_NAV.map((item) => {
       if (item.children) {
@@ -186,6 +189,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
             </div>
           </div>
+          {isAdmin && (
+            <Link href="/admin" onClick={() => setMobileOpen(false)}>
+              <Button
+                variant="ghost" size="sm"
+                className="w-full justify-start gap-2 text-yellow-400 hover:text-yellow-300 hover:bg-sidebar-accent mb-1"
+              >
+                <ShieldCheck className="w-4 h-4" /> Super Admin
+              </Button>
+            </Link>
+          )}
           <Button
             variant="ghost" size="sm" onClick={handleLogout}
             className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent"

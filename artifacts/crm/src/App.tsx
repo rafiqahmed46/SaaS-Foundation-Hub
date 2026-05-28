@@ -66,10 +66,10 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
 
 function AdminRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, loading } = useAuth();
-  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
+  const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase();
   if (loading) return <Spinner />;
   if (!user) return <Redirect to="/login" />;
-  if (adminEmail && user.email !== adminEmail) return <Redirect to="/dashboard" />;
+  if (adminEmail && user.email?.trim().toLowerCase() !== adminEmail) return <Redirect to="/dashboard" />;
   return <Component />;
 }
 
