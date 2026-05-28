@@ -19,7 +19,7 @@ run = "pnpm --filter @workspace/crm run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/crm", "run", "build" ]
-publicDir = "artifacts/crm/dist/public"
+publicDir = "artifacts/crm/dist"
 serve = "static"
 
 [[services.production.rewrites]]
