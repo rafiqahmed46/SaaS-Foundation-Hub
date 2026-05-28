@@ -2,5 +2,8 @@
   "framework": null,
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @workspace/crm run build",
-  "outputDirectory": "artifacts/crm/dist"
+  "outputDirectory": "artifacts/crm/dist",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
