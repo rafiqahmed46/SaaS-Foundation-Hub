@@ -7,9 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // ── Users — own document only ─────────────────────────────────────────────
+    // ── Users — any signed-in user can read, only own document can be written ──
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // ── Companies — authenticated users only ─────────────────────────────────
