@@ -38,10 +38,12 @@ type FormData = {
   email: string;
   phones: string[];
   address: string;
+  area: string;
+  city: string;
   notes: string;
 };
 
-const emptyForm: FormData = { name: "", email: "", phones: [""], address: "", notes: "" };
+const emptyForm: FormData = { name: "", email: "", phones: [""], address: "", area: "", city: "", notes: "" };
 
 function mapsUrl(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
@@ -85,7 +87,7 @@ export default function CustomersPage() {
   function openEdit(c: Customer) {
     setEditCustomer(c);
     const phones = getCustomerPhones(c);
-    setForm({ name: c.name, email: c.email, phones: phones.length ? phones : [""], address: c.address || "", notes: c.notes || "" });
+    setForm({ name: c.name, email: c.email, phones: phones.length ? phones : [""], address: c.address || "", area: c.area || "", city: c.city || "", notes: c.notes || "" });
     setFieldErrors({});
     setDialogOpen(true);
   }
@@ -109,7 +111,7 @@ export default function CustomersPage() {
           name: form.name.trim(), email: form.email.trim(),
           phones: cleanPhones.length ? cleanPhones : undefined,
           phone: primaryPhone,
-          address: form.address.trim(), notes: form.notes.trim(),
+          address: form.address.trim(), area: form.area.trim() || undefined, city: form.city.trim() || undefined, notes: form.notes.trim(),
         });
         toast({ title: "Customer updated" });
       } else {
@@ -117,7 +119,7 @@ export default function CustomersPage() {
           companyId: user.companyId, name: form.name.trim(), email: form.email.trim(),
           phones: cleanPhones.length ? cleanPhones : undefined,
           phone: primaryPhone,
-          address: form.address.trim() || undefined, notes: form.notes.trim() || undefined,
+          address: form.address.trim() || undefined, area: form.area.trim() || undefined, city: form.city.trim() || undefined, notes: form.notes.trim() || undefined,
         });
         toast({ title: "Customer added" });
       }
@@ -153,7 +155,9 @@ export default function CustomersPage() {
       (c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.email.toLowerCase().includes(search.toLowerCase()) ||
-        getCustomerPhones(c).some((p) => p.includes(search))
+        getCustomerPhones(c).some((p) => p.includes(search)) ||
+        (c.area ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (c.city ?? "").toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
       if (sortKey === "name-asc") return a.name.localeCompare(b.name);
@@ -276,7 +280,9 @@ export default function CustomersPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground max-w-xs truncate">{c.address || "—"}</td>
+                      <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground max-w-xs truncate">
+                        {[c.area, c.city].filter(Boolean).join(", ") || c.address || "—"}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <PhoneActionButtons phones={getCustomerPhones(c)} variant="icon" />
@@ -386,9 +392,19 @@ export default function CustomersPage() {
                 </button>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="c-area">Area <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                <Input id="c-area" value={form.area} onChange={(e) => setForm((f) => ({ ...f, area: e.target.value }))} placeholder="Jumeirah, JLT…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="c-city">City <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                <Input id="c-city" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Dubai, Abu Dhabi…" />
+              </div>
+            </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-address">Address</Label>
-              <Input id="c-address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="123 Main St, City" data-testid="input-customer-address" />
+              <Label htmlFor="c-address">Full Address <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input id="c-address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Building, Street, Area, City" data-testid="input-customer-address" />
               {form.address && (
                 <a href={mapsUrl(form.address)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-500 hover:underline">
                   <MapPin className="w-3 h-3" /> Preview on Google Maps

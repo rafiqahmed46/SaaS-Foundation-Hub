@@ -73,7 +73,7 @@ export default function CustomerDetailPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phones: [""], address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phones: [""], address: "", area: "", city: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
   const emptyTaskForm = { title: "", description: "", status: "todo" as Task["status"], priority: "medium" as Task["priority"], dueDate: "" };
@@ -162,6 +162,8 @@ export default function CustomerDetailPage() {
       email: customer.email,
       phones: phones.length ? phones : [""],
       address: customer.address || "",
+      area: customer.area || "",
+      city: customer.city || "",
       notes: customer.notes || "",
     });
     setEditOpen(true);
@@ -183,11 +185,13 @@ export default function CustomerDetailPage() {
         phones: cleanPhones.length ? cleanPhones : undefined,
         phone: primaryPhone,
         address: form.address.trim(),
+        area: form.area.trim() || undefined,
+        city: form.city.trim() || undefined,
         notes: form.notes.trim(),
       });
       setCustomer((prev) =>
         prev
-          ? { ...prev, name: form.name.trim(), email: form.email.trim(), phones: cleanPhones.length ? cleanPhones : undefined, phone: primaryPhone, address: form.address.trim() || undefined, notes: form.notes.trim() || undefined }
+          ? { ...prev, name: form.name.trim(), email: form.email.trim(), phones: cleanPhones.length ? cleanPhones : undefined, phone: primaryPhone, address: form.address.trim() || undefined, area: form.area.trim() || undefined, city: form.city.trim() || undefined, notes: form.notes.trim() || undefined }
           : prev
       );
       toast({ title: "Customer updated" });
@@ -674,13 +678,19 @@ export default function CustomerDetailPage() {
                   <a href={`tel:${ph}`} className="hover:underline hover:text-foreground">{ph}</a>
                 </div>
               ))}
+              {(customer.area || customer.city) && (
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <MapPin className="w-4 h-4 shrink-0 text-primary/60" />
+                  <span>{[customer.area, customer.city].filter(Boolean).join(", ")}</span>
+                </div>
+              )}
               {customer.address && (
                 <div className="flex items-start gap-2.5 text-muted-foreground sm:col-span-2">
-                  <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary/60" />
+                  <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary/60 opacity-40" />
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="hover:underline hover:text-foreground"
+                    className="hover:underline hover:text-foreground text-xs"
                   >
                     {customer.address}
                   </a>
@@ -1053,9 +1063,19 @@ export default function CustomerDetailPage() {
                 </button>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Area <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                <Input value={form.area} onChange={(e) => setForm((f) => ({ ...f, area: e.target.value }))} placeholder="Jumeirah, JLT…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>City <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Dubai, Abu Dhabi…" />
+              </div>
+            </div>
             <div className="space-y-1.5">
-              <Label>Address</Label>
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Dubai, UAE" />
+              <Label>Full Address <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Building, Street, Area, City" />
             </div>
             <div className="space-y-1.5">
               <Label>Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>

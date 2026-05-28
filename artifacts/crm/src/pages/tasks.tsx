@@ -218,11 +218,8 @@ export default function TasksPage() {
   };
 
   const getArea = (task: Task) => {
-    const addr = customerMap.get(task.customerId ?? "")?.address ?? "";
-    if (!addr) return "zzz_no_area";
-    // Extract area: split by comma, take the third part (index 2) or last meaningful segment
-    const parts = addr.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[2] ?? parts[1] ?? parts[0] ?? "zzz_no_area";
+    const cust = customerMap.get(task.customerId ?? "");
+    return cust?.area || cust?.city || "zzz_no_area";
   };
 
   const sorters: Record<SortKey, (a: Task, b: Task) => number> = {

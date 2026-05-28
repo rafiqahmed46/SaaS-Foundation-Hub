@@ -30,6 +30,8 @@ export interface Customer {
   phone?: string;
   phones?: string[];
   address?: string;
+  area?: string;
+  city?: string;
   notes?: string;
   lat?: number;
   lng?: number;
