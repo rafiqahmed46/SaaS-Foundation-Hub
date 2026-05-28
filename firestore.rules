@@ -74,6 +74,12 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // ── Admin config — public read (pricing page), authenticated write ────────
+    match /adminConfig/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     // ── Feedback — public write (from client portal), authenticated read ──────
     match /feedback/{docId} {
       allow create: if true;

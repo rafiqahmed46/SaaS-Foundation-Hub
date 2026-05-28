@@ -3,27 +3,51 @@ import Stripe from "stripe";
 
 const router: IRouter = Router();
 
-const PROMO_COUPON_ID = "clearcrm-50off-3months";
-
 function getStripe(): Stripe {
   const key = process.env["STRIPE_SECRET_KEY"];
   if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
   return new Stripe(key, { apiVersion: "2026-04-22.dahlia" });
 }
 
-async function getOrCreatePromoCoupon(stripe: Stripe): Promise<string> {
+interface PromoConfig {
+  enabled: boolean;
+  percentOff: number;
+  durationMonths: number;
+}
+
+async function getPromoConfig(): Promise<PromoConfig | null> {
+  const projectId = process.env["VITE_FIREBASE_PROJECT_ID"];
+  if (!projectId) return null;
   try {
-    const existing = await stripe.coupons.retrieve(PROMO_COUPON_ID);
-    if (existing.valid) return existing.id;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/adminConfig/promotions`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json() as { fields?: Record<string, { booleanValue?: boolean; integerValue?: string; doubleValue?: number }> };
+    const f = data.fields ?? {};
+    const enabled = f["enabled"]?.booleanValue ?? false;
+    if (!enabled) return null;
+    return {
+      enabled: true,
+      percentOff: Number(f["percentOff"]?.integerValue ?? f["percentOff"]?.doubleValue ?? 50),
+      durationMonths: Number(f["durationMonths"]?.integerValue ?? f["durationMonths"]?.doubleValue ?? 3),
+    };
   } catch {
-    // not found — create it
+    return null;
   }
+}
+
+async function getOrCreatePromoCoupon(stripe: Stripe, percentOff: number, durationMonths: number): Promise<string> {
+  const couponId = `clearcrm-${percentOff}off-${durationMonths}months`;
+  try {
+    const existing = await stripe.coupons.retrieve(couponId);
+    if (existing.valid) return existing.id;
+  } catch { /* not found — create it */ }
   const coupon = await stripe.coupons.create({
-    id: PROMO_COUPON_ID,
-    name: "50% off for first 3 months",
-    percent_off: 50,
+    id: couponId,
+    name: `${percentOff}% off for first ${durationMonths} months`,
+    percent_off: percentOff,
     duration: "repeating",
-    duration_in_months: 3,
+    duration_in_months: durationMonths,
   });
   return coupon.id;
 }
@@ -84,7 +108,10 @@ router.post("/subscriptions/checkout", async (req: Request, res: Response) => {
       return;
     }
 
-    const couponId = await getOrCreatePromoCoupon(stripe);
+    const promoConfig = await getPromoConfig();
+    const couponId = promoConfig
+      ? await getOrCreatePromoCoupon(stripe, promoConfig.percentOff, promoConfig.durationMonths)
+      : null;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -104,7 +131,7 @@ router.post("/subscriptions/checkout", async (req: Request, res: Response) => {
           quantity: 1,
         },
       ],
-      discounts: [{ coupon: couponId }],
+      ...(couponId ? { discounts: [{ coupon: couponId }] } : { allow_promotion_codes: true }),
       metadata: { companyId, companyName, planId },
       success_url: `${successUrl}?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${cancelUrl}?subscription=cancelled`,
