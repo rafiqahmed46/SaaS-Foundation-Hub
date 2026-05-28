@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X,
   Building2, AlertTriangle, ExternalLink, ClipboardList, CheckSquare,
@@ -73,6 +74,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   const isAdmin = !!ADMIN_EMAIL && !!user?.email && user.email.trim().toLowerCase() === ADMIN_EMAIL;
+  const showOnboarding = !!user && user.role === "owner" && user.onboardingCompleted === false && !needsSetup && !firestoreError;
 
   function toggleGroup(href: string) {
     setCollapsedGroups((prev) => ({ ...prev, [href]: !prev[href] }));
@@ -264,6 +266,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         )}
 
         <main className="flex-1 overflow-y-auto">{children}</main>
+        {showOnboarding && (
+          <OnboardingWizard onComplete={() => { void refreshUser(); }} />
+        )}
       </div>
 
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>

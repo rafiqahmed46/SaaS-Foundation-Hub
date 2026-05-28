@@ -10,6 +10,7 @@ export interface AppUser {
   companyId: string | null;
   role: string | null;
   technicianId?: string | null;
+  onboardingCompleted?: boolean;
 }
 
 interface AuthContextType {
@@ -37,7 +38,7 @@ async function fetchUserData(uid: string, email: string | null, displayName: str
   }
   const data = userDoc.data();
   return {
-    user: { uid, email, displayName: data.displayName ?? displayName ?? null, companyId: data.companyId ?? null, role: data.role ?? null, technicianId: data.technicianId ?? null },
+    user: { uid, email, displayName: data.displayName ?? displayName ?? null, companyId: data.companyId ?? null, role: data.role ?? null, technicianId: data.technicianId ?? null, onboardingCompleted: data.onboardingCompleted ?? false },
     needsSetup: false,
   };
 }

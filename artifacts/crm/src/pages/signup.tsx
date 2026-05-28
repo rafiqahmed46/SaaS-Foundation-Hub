@@ -51,6 +51,7 @@ export default function SignupPage() {
           companyId: companyRef.id,
           role: "owner",
           createdAt: new Date().toISOString(),
+          onboardingCompleted: false,
         });
 
         // Create default settings
@@ -150,7 +151,11 @@ export default function SignupPage() {
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Get started — it's free</p>
+            <p className="mt-1 text-sm text-muted-foreground">Get started free — no credit card needed</p>
+            <div className="mt-3 inline-flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Free forever to start — upgrade only when you're ready
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
