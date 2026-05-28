@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Building2, Briefcase, ArrowLeft } from "lucide-react";
+import { Check, Zap, Building2, Briefcase, ArrowLeft, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const PLANS = [
@@ -145,6 +145,14 @@ export default function PricingPage() {
         </div>
       </header>
 
+      {/* Promo banner */}
+      <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-center py-3 px-4">
+        <p className="text-sm font-semibold flex items-center justify-center gap-2">
+          <Tag className="w-4 h-4" />
+          Limited time offer — <span className="underline underline-offset-2">50% off your first 3 months</span> on any plan. No coupon code needed.
+        </p>
+      </div>
+
       <main className="max-w-5xl mx-auto px-6 py-16">
         {/* Hero text */}
         <div className="text-center mb-14">
@@ -162,6 +170,8 @@ export default function PricingPage() {
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const isPro = plan.id === "pro";
+            const discountedPrice = Math.round(plan.price * 0.5);
+
             return (
               <div
                 key={plan.id}
@@ -184,12 +194,28 @@ export default function PricingPage() {
                 <h2 className="text-xl font-bold text-gray-900">{plan.name}</h2>
                 <p className="text-sm text-gray-500 mt-1 mb-5">{plan.description}</p>
 
-                <div className="flex items-end gap-1 mb-6">
-                  <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                  <span className="text-sm text-gray-500 mb-1">{plan.currency} {plan.period}</span>
+                {/* Price with discount */}
+                <div className="mb-2">
+                  <div className="flex items-end gap-2">
+                    <span className="text-4xl font-bold text-gray-900">{discountedPrice}</span>
+                    <div className="mb-1">
+                      <span className="text-sm text-gray-500">{plan.currency} / month</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-gray-400 line-through">
+                      {plan.price} {plan.currency}
+                    </span>
+                    <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs px-2 py-0 border-0">
+                      50% off
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Then {plan.price} {plan.currency}/mo from month 4
+                  </p>
                 </div>
 
-                <ul className="space-y-2.5 mb-8 flex-1">
+                <ul className="space-y-2.5 mb-8 flex-1 mt-4">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-gray-700">
                       <Check className={`w-4 h-4 mt-0.5 shrink-0 ${isPro ? "text-blue-600" : "text-green-500"}`} />
@@ -204,7 +230,7 @@ export default function PricingPage() {
                   disabled={loading === plan.id}
                   onClick={() => handleSubscribe(plan.id)}
                 >
-                  {loading === plan.id ? "Redirecting…" : "Start free trial"}
+                  {loading === plan.id ? "Redirecting…" : "Claim 50% off"}
                 </Button>
               </div>
             );
@@ -214,9 +240,9 @@ export default function PricingPage() {
         {/* FAQ */}
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 gap-8 text-sm">
           {[
+            { q: "How does the 50% off work?", a: "The discount is applied automatically to your first 3 monthly payments. No coupon code needed — just click the button and checkout." },
             { q: "Do I need a credit card to start?", a: "No. Your 14-day trial starts the moment you sign up. Card details only needed when the trial ends." },
-            { q: "Can I cancel any time?", a: "Yes. Cancel from your billing settings. You keep access until the end of the paid period." },
-            { q: "Can I switch plans?", a: "Yes, upgrade or downgrade any time. Changes take effect at the next billing cycle." },
+            { q: "Can I cancel any time?", a: "Yes. Cancel from your billing settings at any time. You keep access until the end of the paid period." },
             { q: "Is my data safe?", a: "All data is stored in Google Firebase with company-level isolation. No other company can see your data." },
           ].map(({ q, a }) => (
             <div key={q}>

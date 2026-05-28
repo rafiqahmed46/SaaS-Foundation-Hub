@@ -3,10 +3,29 @@ import Stripe from "stripe";
 
 const router: IRouter = Router();
 
+const PROMO_COUPON_ID = "clearcrm-50off-3months";
+
 function getStripe(): Stripe {
   const key = process.env["STRIPE_SECRET_KEY"];
   if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
   return new Stripe(key, { apiVersion: "2026-04-22.dahlia" });
+}
+
+async function getOrCreatePromoCoupon(stripe: Stripe): Promise<string> {
+  try {
+    const existing = await stripe.coupons.retrieve(PROMO_COUPON_ID);
+    if (existing.valid) return existing.id;
+  } catch {
+    // not found — create it
+  }
+  const coupon = await stripe.coupons.create({
+    id: PROMO_COUPON_ID,
+    name: "50% off for first 3 months",
+    percent_off: 50,
+    duration: "repeating",
+    duration_in_months: 3,
+  });
+  return coupon.id;
 }
 
 const PLANS = {
@@ -65,6 +84,8 @@ router.post("/subscriptions/checkout", async (req: Request, res: Response) => {
       return;
     }
 
+    const couponId = await getOrCreatePromoCoupon(stripe);
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -83,6 +104,7 @@ router.post("/subscriptions/checkout", async (req: Request, res: Response) => {
           quantity: 1,
         },
       ],
+      discounts: [{ coupon: couponId }],
       metadata: { companyId, companyName, planId },
       success_url: `${successUrl}?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${cancelUrl}?subscription=cancelled`,
