@@ -17,15 +17,15 @@ interface Summary {
   pendingRevenue: number;
 }
 
-function formatCurrency(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+function formatCurrency(amount: number, currency = "AED") {
+  return new Intl.NumberFormat("en-AE", { style: "currency", currency }).format(amount);
 }
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("AED");
 
   useEffect(() => {
     if (!user?.companyId) return;
@@ -50,10 +50,7 @@ export default function DashboardPage() {
           if (inv.status === "paid") {
             totalRevenue += total;
             paidInvoices++;
-          } else if (inv.status === "pending" || inv.status === "sent" || inv.status === "draft") {
-            pendingRevenue += total;
-            pendingInvoices++;
-          } else if (inv.status === "overdue") {
+          } else if (inv.status === "sent" || inv.status === "draft" || inv.status === "overdue") {
             pendingRevenue += total;
             pendingInvoices++;
           }

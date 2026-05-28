@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "wouter";
+import { addDoc, collection } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { getInvoice, Invoice, getSettings, Settings } from "@/lib/firestore";
 import { Building2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ export default function PortalPage() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     if (!invoiceId) return;
@@ -282,7 +285,32 @@ export default function PortalPage() {
                   rows={3}
                   className="w-full text-sm border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-                <Button onClick={() => setSubmitted(true)} className="mt-3 w-full sm:w-auto">Submit Feedback</Button>
+                <Button
+                  onClick={async () => {
+                    if (!invoice) return;
+                    setSubmittingFeedback(true);
+                    try {
+                      await addDoc(collection(db, "feedback"), {
+                        invoiceId: invoice.id,
+                        invoiceNumber: invoice.invoiceNumber,
+                        companyId: invoice.companyId,
+                        customerName: invoice.customerName,
+                        rating,
+                        comment: feedback.trim() || null,
+                        createdAt: new Date().toISOString(),
+                      });
+                    } catch {
+                      // Still show thank-you even if save fails (public page, no auth)
+                    } finally {
+                      setSubmittingFeedback(false);
+                      setSubmitted(true);
+                    }
+                  }}
+                  disabled={submittingFeedback}
+                  className="mt-3 w-full sm:w-auto"
+                >
+                  {submittingFeedback ? "Submitting…" : "Submit Feedback"}
+                </Button>
               </>
             )}
           </div>

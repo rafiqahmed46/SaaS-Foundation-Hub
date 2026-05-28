@@ -15,7 +15,7 @@ const MONTH_NAMES = ["January","February","March","April","May","June","July","A
 type CalEvent = {
   id: string; title: string; date: string;
   type: "task" | "work-order"; status: string;
-  techName?: string; customerName?: string; priority?: string;
+  techId?: string; techName?: string; customerName?: string; priority?: string;
 };
 
 const TECH_COLORS = [
@@ -35,7 +35,6 @@ export default function CalendarPage() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTech, setFilterTech] = useState("all");
-  const [view, setView] = useState<"month" | "week">("month");
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -62,21 +61,19 @@ export default function CalendarPage() {
     const result: CalEvent[] = [];
     tasks.forEach((t) => {
       if (!t.dueDate) return;
-      result.push({ id: t.id, title: t.title, date: t.dueDate, type: "task", status: t.status, techName: t.assignedToName, customerName: t.customerName, priority: t.priority });
+      result.push({ id: t.id, title: t.title, date: t.dueDate, type: "task", status: t.status, techId: t.assignedTo, techName: t.assignedToName, customerName: t.customerName, priority: t.priority });
     });
     workOrders.forEach((wo) => {
       if (!wo.scheduledDate) return;
-      result.push({ id: wo.id, title: wo.title, date: wo.scheduledDate, type: "work-order", status: wo.status, techName: wo.assignedToName, customerName: wo.customerName, priority: wo.priority });
+      result.push({ id: wo.id, title: wo.title, date: wo.scheduledDate, type: "work-order", status: wo.status, techId: wo.assignedTo, techName: wo.assignedToName, customerName: wo.customerName, priority: wo.priority });
     });
     return result;
   }, [tasks, workOrders]);
 
   const filteredEvents = useMemo(() => {
     if (filterTech === "all") return events;
-    const tech = technicians.find((t) => t.id === filterTech);
-    if (!tech) return events;
-    return events.filter((e) => e.techName === tech.name);
-  }, [events, filterTech, technicians]);
+    return events.filter((e) => e.techId === filterTech);
+  }, [events, filterTech]);
 
   function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1); } else { setMonth(m => m - 1); } }
   function nextMonth() { if (month === 11) { setMonth(0); setYear(y => y + 1); } else { setMonth(m => m + 1); } }
