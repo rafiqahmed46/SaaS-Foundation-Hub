@@ -81,6 +81,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@paddle/paddle-js": "^1.6.4",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "papaparse": "^5.5.3",

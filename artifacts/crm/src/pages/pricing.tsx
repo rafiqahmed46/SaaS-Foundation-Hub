@@ -3,11 +3,12 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Briefcase, ArrowLeft, Tag } from "lucide-react";
+import { Check, Zap, Briefcase, Building2, ArrowLeft, Tag } from "lucide-react";
 import { MarwoMark } from "@/components/MarwoLogo";
 import { useToast } from "@/hooks/use-toast";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 
 interface PromoConfig {
   enabled: boolean;
@@ -21,8 +22,8 @@ const PLANS = [
   {
     id: "starter",
     name: "Starter",
-    price: 49,
-    currency: "AED",
+    price: 19.99,
+    symbol: "$",
     description: "Perfect for freelancers and solo operators",
     icon: Zap,
     color: "border-gray-200",
@@ -39,8 +40,8 @@ const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: 99,
-    currency: "AED",
+    price: 49.99,
+    symbol: "$",
     description: "For growing teams that need more power",
     icon: Briefcase,
     color: "border-blue-500",
@@ -60,10 +61,10 @@ const PLANS = [
   {
     id: "business",
     name: "Business",
-    price: 199,
-    currency: "AED",
+    price: 99.99,
+    symbol: "$",
     description: "For established companies with full needs",
-    icon: Briefcase,
+    icon: Building2,
     color: "border-gray-200",
     badge: null as string | null,
     features: [
@@ -78,18 +79,35 @@ const PLANS = [
   },
 ];
 
+const PADDLE_PRICE_IDS: Record<string, string | undefined> = {
+  starter: import.meta.env.VITE_PADDLE_PRICE_STARTER as string | undefined,
+  pro: import.meta.env.VITE_PADDLE_PRICE_PRO as string | undefined,
+  business: import.meta.env.VITE_PADDLE_PRICE_BUSINESS as string | undefined,
+};
+
 export default function PricingPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [promo, setPromo] = useState<PromoConfig | null>(null);
+  const [paddle, setPaddle] = useState<Paddle | undefined>();
 
   useEffect(() => {
     getDoc(doc(db, "adminConfig", "promotions"))
-      .then((snap) => {
-        if (snap.exists()) setPromo(snap.data() as PromoConfig);
-      })
+      .then((snap) => { if (snap.exists()) setPromo(snap.data() as PromoConfig); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN as string | undefined;
+    if (!token) return;
+    const env = import.meta.env.VITE_PADDLE_ENVIRONMENT as string | undefined;
+    initializePaddle({
+      environment: env === "sandbox" ? "sandbox" : "production",
+      token,
+    })
+      .then((instance) => { if (instance) setPaddle(instance); })
       .catch(() => {});
   }, []);
 
@@ -100,31 +118,41 @@ export default function PricingPage() {
     .replace("{percent}", String(percentOff))
     .replace("{months}", String(durationMonths));
 
-  async function handleSubscribe(planId: string) {
+  function handleSubscribe(planId: string) {
     if (!user) { navigate("/signup"); return; }
-    setLoading(planId);
-    try {
-      const baseUrl = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
-      const res = await fetch("/api/subscriptions/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId,
-          companyId: user.companyId ?? user.uid,
-          companyName: user.displayName ?? "",
-          email: user.email ?? "",
-          successUrl: `${baseUrl}/settings`,
-          cancelUrl: `${baseUrl}/pricing`,
-        }),
+
+    const priceId = PADDLE_PRICE_IDS[planId];
+    if (!priceId) {
+      toast({
+        title: "Plan not yet active",
+        description: "Contact support to subscribe to this plan.",
+        variant: "destructive",
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? "Failed to start checkout");
-      }
-      const data = await res.json() as { url: string };
-      window.location.href = data.url;
+      return;
+    }
+
+    if (!paddle) {
+      toast({ title: "Payment loading…", description: "Please wait a moment and try again.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(planId);
+    const baseUrl = window.location.origin + (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+    try {
+      paddle.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        customer: { email: user.email ?? "" },
+        customData: { companyId: user.companyId ?? user.uid, planId },
+        settings: {
+          successUrl: `${baseUrl}/settings?subscription=success`,
+          displayMode: "overlay",
+          theme: "light",
+          locale: "en",
+        },
+      });
     } catch (err: unknown) {
-      toast({ title: "Could not start checkout", description: (err as Error).message, variant: "destructive" });
+      toast({ title: "Could not open checkout", description: (err as Error).message, variant: "destructive" });
+    } finally {
       setLoading(null);
     }
   }
@@ -153,7 +181,7 @@ export default function PricingPage() {
         </div>
       </header>
 
-      {/* Promo banner — only shown when offer is active */}
+      {/* Promo banner */}
       {isPromoActive && (
         <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-center py-3 px-4">
           <p className="text-sm font-semibold flex items-center justify-center gap-2">
@@ -176,7 +204,9 @@ export default function PricingPage() {
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const isPro = plan.id === "pro";
-            const discountedPrice = isPromoActive ? Math.round(plan.price * (1 - percentOff / 100)) : null;
+            const discountedPrice = isPromoActive
+              ? Math.round(plan.price * (1 - percentOff / 100) * 100) / 100
+              : null;
 
             return (
               <div
@@ -199,24 +229,26 @@ export default function PricingPage() {
                 {/* Price display */}
                 {isPromoActive && discountedPrice !== null ? (
                   <div className="mb-4">
-                    <div className="flex items-end gap-2">
-                      <span className="text-4xl font-bold text-gray-900">{discountedPrice}</span>
-                      <span className="text-sm text-gray-500 mb-1">{plan.currency} / month</span>
+                    <div className="flex items-end gap-0.5">
+                      <span className="text-xl font-bold text-gray-900 mb-0.5">{plan.symbol}</span>
+                      <span className="text-4xl font-bold text-gray-900">{discountedPrice.toFixed(2)}</span>
+                      <span className="text-sm text-gray-500 mb-1 ml-1">/ month</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-gray-400 line-through">{plan.price} {plan.currency}</span>
+                      <span className="text-sm text-gray-400 line-through">{plan.symbol}{plan.price.toFixed(2)}</span>
                       <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs px-2 py-0 border-0">
                         {percentOff}% off
                       </Badge>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      Then {plan.price} {plan.currency}/mo from month {durationMonths + 1}
+                      Then {plan.symbol}{plan.price.toFixed(2)}/mo from month {durationMonths + 1}
                     </p>
                   </div>
                 ) : (
-                  <div className="flex items-end gap-1 mb-6">
-                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-sm text-gray-500 mb-1">{plan.currency} / month</span>
+                  <div className="flex items-end gap-0.5 mb-6">
+                    <span className="text-xl font-bold text-gray-900 mb-0.5">{plan.symbol}</span>
+                    <span className="text-4xl font-bold text-gray-900">{plan.price.toFixed(2)}</span>
+                    <span className="text-sm text-gray-500 mb-1 ml-1">/ month</span>
                   </div>
                 )}
 
@@ -235,7 +267,7 @@ export default function PricingPage() {
                   disabled={loading === plan.id}
                   onClick={() => handleSubscribe(plan.id)}
                 >
-                  {loading === plan.id ? "Redirecting…" : isPromoActive ? `Claim ${percentOff}% off` : "Start free trial"}
+                  {loading === plan.id ? "Opening checkout…" : isPromoActive ? `Claim ${percentOff}% off` : "Start free trial"}
                 </Button>
               </div>
             );
@@ -263,7 +295,11 @@ export default function PricingPage() {
       {/* Footer */}
       <footer className="border-t border-gray-200 bg-white mt-8">
         <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
-          <span>© {new Date().getFullYear()} Marwo. All rights reserved. Payments processed by <a href="https://www.paddle.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">Paddle</a>.</span>
+          <span>
+            © {new Date().getFullYear()} Marwo. All rights reserved.{" "}
+            Payments processed by{" "}
+            <a href="https://www.paddle.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">Paddle</a>.
+          </span>
           <div className="flex items-center gap-5">
             <Link href="/terms" className="hover:text-gray-700 transition-colors">Terms of Service</Link>
             <Link href="/privacy" className="hover:text-gray-700 transition-colors">Privacy Policy</Link>
