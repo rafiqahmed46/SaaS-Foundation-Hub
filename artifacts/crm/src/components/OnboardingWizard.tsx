@@ -88,8 +88,8 @@ export default function OnboardingWizard({ onComplete }: Props) {
   function setB<K extends keyof BizForm>(k: K, v: BizForm[K]) { setBiz(p => ({ ...p, [k]: v })); }
   function setT<K extends keyof TeamForm>(k: K, v: TeamForm[K]) { setTeam(p => ({ ...p, [k]: v })); }
 
-  async function handleFinish(skipTeam = false) {
-    if (!user?.companyId) return;
+  async function handleSaveAndContinue(skipTeam = false) {
+    if (!user?.companyId) { setStep(4); return; }
     setSaving(true);
     try {
       await setDoc(doc(db, "settings", user.companyId), {
@@ -121,15 +121,24 @@ export default function OnboardingWizard({ onComplete }: Props) {
         });
       }
 
-      await updateDoc(doc(db, "users", user.uid), { onboardingCompleted: true });
-      onComplete();
-      toast({ title: "All set! Welcome to Marwo." });
+      setStep(4);
     } catch {
       toast({ title: "Could not save settings", description: "You can update them in Settings anytime.", variant: "destructive" });
-      onComplete();
+      setStep(4);
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleComplete() {
+    if (user?.companyId && user?.uid) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), { onboardingCompleted: true });
+      } catch {
+        // ignore — markOnboardingComplete handles local state
+      }
+    }
+    onComplete();
   }
 
   const progress = ((step - 1) / (STEPS.length - 1)) * 100;
@@ -339,7 +348,7 @@ export default function OnboardingWizard({ onComplete }: Props) {
 
           <div className="flex items-center gap-2">
             {step === 3 && (
-              <Button variant="ghost" size="sm" className="text-gray-500" onClick={() => { setStep(4); }} disabled={saving}>
+              <Button variant="ghost" size="sm" className="text-gray-500" onClick={() => handleSaveAndContinue(true)} disabled={saving}>
                 Skip
               </Button>
             )}
@@ -355,12 +364,12 @@ export default function OnboardingWizard({ onComplete }: Props) {
               </Button>
             )}
             {step === 3 && (
-              <Button onClick={() => { setStep(4); handleFinish(false); }} disabled={saving}>
+              <Button onClick={() => handleSaveAndContinue(false)} disabled={saving}>
                 {saving ? "Saving…" : <>Save & Continue <ChevronRight className="w-4 h-4 ml-1" /></>}
               </Button>
             )}
             {step === 4 && (
-              <Button onClick={onComplete} className="gap-2 bg-green-600 hover:bg-green-700">
+              <Button onClick={() => { void handleComplete(); }} className="gap-2 bg-green-600 hover:bg-green-700">
                 <Sparkles className="w-4 h-4" /> Start using Marwo
               </Button>
             )}
