@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { query, where, collection } from "firebase/firestore";
+import { getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getInvoices, getSettings } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,20 +34,22 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true);
       try {
-        const [custSnap, invSnap, settSnap] = await Promise.all([
-          getDocs(query(collection(db, "customers"), where("companyId", "==", user!.companyId))),
-          getDocs(query(collection(db, "invoices"), where("companyId", "==", user!.companyId))),
-          import("@/lib/firestore").then((m) => m.getSettings(user!.companyId!)),
+        const companyId = user!.companyId!;
+        const custCountQ = query(collection(db, "customers"), where("companyId", "==", companyId));
+        const [custCountSnap, invoices, sett] = await Promise.all([
+          getCountFromServer(custCountQ),
+          getInvoices(companyId),
+          getSettings(companyId),
         ]);
-        if (settSnap?.currency) setCurrency(settSnap.currency);
+
+        if (sett?.currency) setCurrency(sett.currency);
 
         let totalRevenue = 0;
         let pendingRevenue = 0;
         let pendingInvoices = 0;
         let paidInvoices = 0;
 
-        invSnap.docs.forEach((d) => {
-          const inv = d.data();
+        invoices.forEach((inv) => {
           const total = inv.total || 0;
           if (inv.status === "paid") {
             totalRevenue += total;
@@ -57,8 +61,8 @@ export default function DashboardPage() {
         });
 
         setSummary({
-          totalCustomers: custSnap.size,
-          totalInvoices: invSnap.size,
+          totalCustomers: custCountSnap.data().count,
+          totalInvoices: invoices.length,
           pendingInvoices,
           paidInvoices,
           totalRevenue,

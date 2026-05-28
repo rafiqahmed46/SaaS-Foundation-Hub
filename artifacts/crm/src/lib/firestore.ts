@@ -9,6 +9,7 @@ import {
   query,
   where,
   setDoc,
+  getCountFromServer,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -18,6 +19,27 @@ function byCreatedAtDesc<T extends { createdAt: string }>(a: T, b: T) {
 
 function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+}
+
+// ── TTL cache — 5 min per entry, keyed by "collection:companyId" ──────────────
+const CACHE_TTL = 5 * 60 * 1000;
+const _cache = new Map<string, { data: unknown; exp: number }>();
+
+function cacheGet<T>(key: string): T | null {
+  const e = _cache.get(key);
+  if (!e || Date.now() > e.exp) { _cache.delete(key); return null; }
+  return e.data as T;
+}
+
+function cacheSet<T>(key: string, data: T): void {
+  _cache.set(key, { data, exp: Date.now() + CACHE_TTL });
+}
+
+export function cacheInvalidate(...prefixes: string[]): void {
+  if (!prefixes.length) { _cache.clear(); return; }
+  for (const key of Array.from(_cache.keys())) {
+    if (prefixes.some((p) => key.startsWith(p))) _cache.delete(key);
+  }
 }
 
 // ── Customer ────────────────────────────────────────────────────────────────
@@ -45,9 +67,14 @@ export function getCustomerPhones(c: Customer): string[] {
 }
 
 export async function getCustomers(companyId: string): Promise<Customer[]> {
+  const key = `customers:${companyId}`;
+  const cached = cacheGet<Customer[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "customers"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Customer)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Customer)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getCustomer(id: string): Promise<Customer | null> {
@@ -57,15 +84,19 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function addCustomer(data: Omit<Customer, "id" | "createdAt">) {
-  return addDoc(collection(db, "customers"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "customers"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`customers:${data.companyId}`);
+  return ref;
 }
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
-  return updateDoc(doc(db, "customers", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "customers", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("customers:");
 }
 
 export async function deleteCustomer(id: string) {
-  return deleteDoc(doc(db, "customers", id));
+  await deleteDoc(doc(db, "customers", id));
+  cacheInvalidate("customers:");
 }
 
 // ── Customer Visits ──────────────────────────────────────────────────────────
@@ -124,9 +155,14 @@ export interface Invoice {
 }
 
 export async function getInvoices(companyId: string): Promise<Invoice[]> {
+  const key = `invoices:${companyId}`;
+  const cached = cacheGet<Invoice[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "invoices"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Invoice)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Invoice)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getInvoice(id: string): Promise<Invoice | null> {
@@ -136,15 +172,19 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
 }
 
 export async function addInvoice(data: Omit<Invoice, "id" | "createdAt">) {
-  return addDoc(collection(db, "invoices"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "invoices"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`invoices:${data.companyId}`);
+  return ref;
 }
 
 export async function updateInvoice(id: string, data: Partial<Invoice>) {
-  return updateDoc(doc(db, "invoices", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "invoices", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("invoices:");
 }
 
 export async function deleteInvoice(id: string) {
-  return deleteDoc(doc(db, "invoices", id));
+  await deleteDoc(doc(db, "invoices", id));
+  cacheInvalidate("invoices:");
 }
 
 // ── Payment (partial payments on invoices) ───────────────────────────────────
@@ -168,23 +208,36 @@ export interface Payment {
 }
 
 export async function getPayments(companyId: string): Promise<Payment[]> {
+  const key = `payments:${companyId}`;
+  const cached = cacheGet<Payment[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "payments"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getPaymentsByInvoice(invoiceId: string): Promise<Payment[]> {
+  const key = `paymentsByInvoice:${invoiceId}`;
+  const cached = cacheGet<Payment[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "payments"), where("invoiceId", "==", invoiceId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function addPayment(data: Omit<Payment, "id" | "createdAt">) {
-  return addDoc(collection(db, "payments"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "payments"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`payments:${data.companyId}`, `paymentsByInvoice:${data.invoiceId}`);
+  return ref;
 }
 
 export async function deletePayment(id: string) {
-  return deleteDoc(doc(db, "payments", id));
+  await deleteDoc(doc(db, "payments", id));
+  cacheInvalidate("payments:", "paymentsByInvoice:");
 }
 
 // ── Asset / Equipment ─────────────────────────────────────────────────────────
@@ -210,15 +263,25 @@ export interface Asset {
 }
 
 export async function getAssets(companyId: string): Promise<Asset[]> {
+  const key = `assets:${companyId}`;
+  const cached = cacheGet<Asset[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "assets"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getAssetsByCustomer(companyId: string, customerId: string): Promise<Asset[]> {
+  const key = `assetsByCustomer:${companyId}:${customerId}`;
+  const cached = cacheGet<Asset[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "assets"), where("companyId", "==", companyId), where("customerId", "==", customerId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asset)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getAsset(id: string): Promise<Asset | null> {
@@ -228,15 +291,19 @@ export async function getAsset(id: string): Promise<Asset | null> {
 }
 
 export async function addAsset(data: Omit<Asset, "id" | "createdAt">) {
-  return addDoc(collection(db, "assets"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "assets"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`assets:${data.companyId}`, `assetsByCustomer:${data.companyId}`);
+  return ref;
 }
 
 export async function updateAsset(id: string, data: Partial<Asset>) {
-  return updateDoc(doc(db, "assets", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "assets", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("assets:", "assetsByCustomer:");
 }
 
 export async function deleteAsset(id: string) {
-  return deleteDoc(doc(db, "assets", id));
+  await deleteDoc(doc(db, "assets", id));
+  cacheInvalidate("assets:", "assetsByCustomer:");
 }
 
 // ── Work Order ────────────────────────────────────────────────────────────────
@@ -279,9 +346,14 @@ export interface WorkOrder {
 }
 
 export async function getWorkOrders(companyId: string): Promise<WorkOrder[]> {
+  const key = `workOrders:${companyId}`;
+  const cached = cacheGet<WorkOrder[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "workOrders"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getWorkOrder(id: string): Promise<WorkOrder | null> {
@@ -291,21 +363,25 @@ export async function getWorkOrder(id: string): Promise<WorkOrder | null> {
 }
 
 export async function addWorkOrder(data: Omit<WorkOrder, "id" | "createdAt">) {
-  return addDoc(collection(db, "workOrders"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "workOrders"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`workOrders:${data.companyId}`);
+  return ref;
 }
 
 export async function updateWorkOrder(id: string, data: Partial<WorkOrder>) {
-  return updateDoc(doc(db, "workOrders", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "workOrders", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("workOrders:");
 }
 
 export async function deleteWorkOrder(id: string) {
-  return deleteDoc(doc(db, "workOrders", id));
+  await deleteDoc(doc(db, "workOrders", id));
+  cacheInvalidate("workOrders:");
 }
 
 export async function getNextWorkOrderNumber(companyId: string): Promise<string> {
   const q = query(collection(db, "workOrders"), where("companyId", "==", companyId));
-  const snap = await getDocs(q);
-  return `WO-${String(snap.size + 1).padStart(4, "0")}`;
+  const snap = await getCountFromServer(q);
+  return `WO-${String(snap.data().count + 1).padStart(4, "0")}`;
 }
 
 // ── AMC Contract ──────────────────────────────────────────────────────────────
@@ -342,9 +418,14 @@ export interface Contract {
 }
 
 export async function getContracts(companyId: string): Promise<Contract[]> {
+  const key = `contracts:${companyId}`;
+  const cached = cacheGet<Contract[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "contracts"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Contract)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Contract)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getContract(id: string): Promise<Contract | null> {
@@ -354,21 +435,25 @@ export async function getContract(id: string): Promise<Contract | null> {
 }
 
 export async function addContract(data: Omit<Contract, "id" | "createdAt">) {
-  return addDoc(collection(db, "contracts"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "contracts"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`contracts:${data.companyId}`);
+  return ref;
 }
 
 export async function updateContract(id: string, data: Partial<Contract>) {
-  return updateDoc(doc(db, "contracts", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "contracts", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("contracts:");
 }
 
 export async function deleteContract(id: string) {
-  return deleteDoc(doc(db, "contracts", id));
+  await deleteDoc(doc(db, "contracts", id));
+  cacheInvalidate("contracts:");
 }
 
 export async function getNextContractNumber(companyId: string): Promise<string> {
   const q = query(collection(db, "contracts"), where("companyId", "==", companyId));
-  const snap = await getDocs(q);
-  return `CON-${String(snap.size + 1).padStart(4, "0")}`;
+  const snap = await getCountFromServer(q);
+  return `CON-${String(snap.data().count + 1).padStart(4, "0")}`;
 }
 
 // ── Team Invite ───────────────────────────────────────────────────────────────
@@ -386,21 +471,30 @@ export interface TeamInvite {
 }
 
 export async function getTeamInvites(companyId: string): Promise<TeamInvite[]> {
+  const key = `teamInvites:${companyId}`;
+  const cached = cacheGet<TeamInvite[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "teamInvites"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamInvite)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamInvite)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function addTeamInvite(data: Omit<TeamInvite, "id" | "createdAt">) {
-  return addDoc(collection(db, "teamInvites"), { ...data, createdAt: new Date().toISOString() });
+  const ref = await addDoc(collection(db, "teamInvites"), { ...data, createdAt: new Date().toISOString() });
+  cacheInvalidate(`teamInvites:${data.companyId}`);
+  return ref;
 }
 
 export async function updateTeamInvite(id: string, data: Partial<TeamInvite>) {
-  return updateDoc(doc(db, "teamInvites", id), data as Record<string, unknown>);
+  await updateDoc(doc(db, "teamInvites", id), data as Record<string, unknown>);
+  cacheInvalidate("teamInvites:");
 }
 
 export async function deleteTeamInvite(id: string) {
-  return deleteDoc(doc(db, "teamInvites", id));
+  await deleteDoc(doc(db, "teamInvites", id));
+  cacheInvalidate("teamInvites:");
 }
 
 // ── Quotation ─────────────────────────────────────────────────────────────────
@@ -429,9 +523,14 @@ export interface Quotation {
 }
 
 export async function getQuotations(companyId: string): Promise<Quotation[]> {
+  const key = `quotations:${companyId}`;
+  const cached = cacheGet<Quotation[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "quotations"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Quotation)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Quotation)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getQuotation(id: string): Promise<Quotation | null> {
@@ -441,21 +540,25 @@ export async function getQuotation(id: string): Promise<Quotation | null> {
 }
 
 export async function addQuotation(data: Omit<Quotation, "id" | "createdAt">) {
-  return addDoc(collection(db, "quotations"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "quotations"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`quotations:${data.companyId}`);
+  return ref;
 }
 
 export async function updateQuotation(id: string, data: Partial<Quotation>) {
-  return updateDoc(doc(db, "quotations", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "quotations", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("quotations:");
 }
 
 export async function deleteQuotation(id: string) {
-  return deleteDoc(doc(db, "quotations", id));
+  await deleteDoc(doc(db, "quotations", id));
+  cacheInvalidate("quotations:");
 }
 
 export async function getNextQuoteNumber(companyId: string, prefix: string): Promise<string> {
   const q = query(collection(db, "quotations"), where("companyId", "==", companyId));
-  const snap = await getDocs(q);
-  return `${prefix}QT-${String(snap.size + 1).padStart(4, "0")}`;
+  const snap = await getCountFromServer(q);
+  return `${prefix}QT-${String(snap.data().count + 1).padStart(4, "0")}`;
 }
 
 // ── Task ─────────────────────────────────────────────────────────────────────
@@ -476,21 +579,30 @@ export interface Task {
 }
 
 export async function getTasks(companyId: string): Promise<Task[]> {
+  const key = `tasks:${companyId}`;
+  const cached = cacheGet<Task[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "tasks"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Task)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Task)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function addTask(data: Omit<Task, "id" | "createdAt">) {
-  return addDoc(collection(db, "tasks"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "tasks"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`tasks:${data.companyId}`);
+  return ref;
 }
 
 export async function updateTask(id: string, data: Partial<Task>) {
-  return updateDoc(doc(db, "tasks", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "tasks", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("tasks:");
 }
 
 export async function deleteTask(id: string) {
-  return deleteDoc(doc(db, "tasks", id));
+  await deleteDoc(doc(db, "tasks", id));
+  cacheInvalidate("tasks:");
 }
 
 // ── Technician ────────────────────────────────────────────────────────────────
@@ -510,9 +622,14 @@ export interface Technician {
 }
 
 export async function getTechnicians(companyId: string): Promise<Technician[]> {
+  const key = `technicians:${companyId}`;
+  const cached = cacheGet<Technician[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "technicians"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Technician)).sort(byCreatedAtDesc);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Technician)).sort(byCreatedAtDesc);
+  cacheSet(key, result);
+  return result;
 }
 
 export async function getTechnician(id: string): Promise<Technician | null> {
@@ -522,15 +639,19 @@ export async function getTechnician(id: string): Promise<Technician | null> {
 }
 
 export async function addTechnician(data: Omit<Technician, "id" | "createdAt">) {
-  return addDoc(collection(db, "technicians"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  const ref = await addDoc(collection(db, "technicians"), stripUndefined({ ...data, createdAt: new Date().toISOString() }));
+  cacheInvalidate(`technicians:${data.companyId}`);
+  return ref;
 }
 
 export async function updateTechnician(id: string, data: Partial<Technician>) {
-  return updateDoc(doc(db, "technicians", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "technicians", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("technicians:");
 }
 
 export async function deleteTechnician(id: string) {
-  return deleteDoc(doc(db, "technicians", id));
+  await deleteDoc(doc(db, "technicians", id));
+  cacheInvalidate("technicians:");
 }
 
 // ── Transaction (Income / Expense) ────────────────────────────────────────────
@@ -583,23 +704,32 @@ export async function getTransaction(id: string): Promise<Transaction | null> {
 }
 
 export async function getTransactions(companyId: string): Promise<Transaction[]> {
+  const key = `transactions:${companyId}`;
+  const cached = cacheGet<Transaction[]>(key);
+  if (cached) return cached;
   const q = query(collection(db, "transactions"), where("companyId", "==", companyId));
   const snap = await getDocs(q);
-  return snap.docs
+  const result = snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as Transaction))
     .sort((a, b) => b.date.localeCompare(a.date));
+  cacheSet(key, result);
+  return result;
 }
 
 export async function addTransaction(data: Omit<Transaction, "id" | "createdAt">) {
-  return addDoc(collection(db, "transactions"), { ...data, createdAt: new Date().toISOString() });
+  const ref = await addDoc(collection(db, "transactions"), { ...data, createdAt: new Date().toISOString() });
+  cacheInvalidate(`transactions:${data.companyId}`);
+  return ref;
 }
 
 export async function updateTransaction(id: string, data: Partial<Transaction>) {
-  return updateDoc(doc(db, "transactions", id), stripUndefined(data as Record<string, unknown>));
+  await updateDoc(doc(db, "transactions", id), stripUndefined(data as Record<string, unknown>));
+  cacheInvalidate("transactions:");
 }
 
 export async function deleteTransaction(id: string) {
-  return deleteDoc(doc(db, "transactions", id));
+  await deleteDoc(doc(db, "transactions", id));
+  cacheInvalidate("transactions:");
 }
 
 // ── Roles & Permissions ───────────────────────────────────────────────────────
@@ -649,13 +779,19 @@ export interface Settings {
 }
 
 export async function getSettings(companyId: string): Promise<Settings | null> {
+  const key = `settings:${companyId}`;
+  const cached = cacheGet<Settings>(key);
+  if (cached) return cached;
   const snap = await getDoc(doc(db, "settings", companyId));
   if (!snap.exists()) return null;
-  return { companyId, ...snap.data() } as Settings;
+  const result = { companyId, ...snap.data() } as Settings;
+  cacheSet(key, result);
+  return result;
 }
 
 export async function saveSettings(companyId: string, data: Partial<Settings>) {
-  return setDoc(doc(db, "settings", companyId), data, { merge: true });
+  await setDoc(doc(db, "settings", companyId), data, { merge: true });
+  cacheInvalidate(`settings:${companyId}`);
 }
 
 // ── Company ───────────────────────────────────────────────────────────────────
@@ -669,6 +805,6 @@ export interface Company {
 
 export async function getNextInvoiceNumber(companyId: string, prefix: string): Promise<string> {
   const q = query(collection(db, "invoices"), where("companyId", "==", companyId));
-  const snap = await getDocs(q);
-  return `${prefix}${String(snap.size + 1).padStart(4, "0")}`;
+  const snap = await getCountFromServer(q);
+  return `${prefix}${String(snap.data().count + 1).padStart(4, "0")}`;
 }
