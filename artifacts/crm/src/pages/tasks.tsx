@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -11,13 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckSquare, Pencil, Trash2, Circle, Clock, CheckCircle2, AlertTriangle, User, Wrench, UserCheck } from "lucide-react";
+import { Plus, CheckSquare, Pencil, Trash2, Clock, CheckCircle2, AlertTriangle, User, Wrench, UserCheck, X, MapPin, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  todo:         { label: "To Do",       icon: Circle,       color: "text-gray-500",  bg: "bg-gray-100"  },
-  pending:      { label: "To Do",       icon: Circle,       color: "text-gray-500",  bg: "bg-gray-100"  },
+  todo:         { label: "To Do",       icon: CheckSquare,  color: "text-gray-500",  bg: "bg-gray-100"  },
+  pending:      { label: "To Do",       icon: CheckSquare,  color: "text-gray-500",  bg: "bg-gray-100"  },
   "in-progress":{ label: "In Progress", icon: Clock,        color: "text-blue-600",  bg: "bg-blue-100"  },
   done:         { label: "Done",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
   completed:    { label: "Done",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-100" },
@@ -25,10 +26,14 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; co
 };
 
 const PRIORITY_CONFIG = {
-  low: { label: "Low", color: "text-gray-500", dot: "bg-gray-400" },
+  low:    { label: "Low",    color: "text-gray-500",  dot: "bg-gray-400"  },
   medium: { label: "Medium", color: "text-amber-600", dot: "bg-amber-400" },
-  high: { label: "High", color: "text-red-600", dot: "bg-red-500" },
+  high:   { label: "High",   color: "text-red-600",   dot: "bg-red-500"   },
 };
+
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+
+type SortKey = "due-date" | "priority" | "area" | "customer";
 
 type FormData = {
   title: string;
@@ -51,11 +56,19 @@ export default function TasksPage() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | Task["status"]>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("due-date");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTechId, setBulkTechId] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const customerMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
 
   async function load() {
     if (!user?.companyId) return;
@@ -69,12 +82,7 @@ export default function TasksPage() {
 
   useEffect(() => { load(); }, [user?.companyId]);
 
-  function openAdd() {
-    setEditTask(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
-  }
-
+  function openAdd() { setEditTask(null); setForm(emptyForm); setDialogOpen(true); }
   function openEdit(t: Task) {
     setEditTask(t);
     setForm({ title: t.title, description: t.description || "", customerId: t.customerId || "", assignedTo: t.assignedTo || "", status: t.status, priority: t.priority, dueDate: t.dueDate || "" });
@@ -158,16 +166,95 @@ export default function TasksPage() {
     }
   }
 
-  const counts = { all: tasks.length, todo: tasks.filter((t) => t.status === "todo").length, "in-progress": tasks.filter((t) => t.status === "in-progress").length, done: tasks.filter((t) => t.status === "done").length };
-  const byDate = (a: Task, b: Task) => {
-    if (!a.dueDate && !b.dueDate) return 0;
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate.localeCompare(b.dueDate);
+  // ── Multi-select helpers ──────────────────────────────────────────────
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((t) => t.id)));
+    }
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkTechId || selectedIds.size === 0) return;
+    const tech = technicians.find((t) => t.id === bulkTechId);
+    if (!tech) return;
+    setBulkSaving(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          updateTask(id, { assignedTo: tech.id, assignedToName: tech.name })
+        )
+      );
+      setTasks((prev) =>
+        prev.map((t) =>
+          selectedIds.has(t.id) ? { ...t, assignedTo: tech.id, assignedToName: tech.name } : t
+        )
+      );
+      toast({ title: `${selectedIds.size} task${selectedIds.size > 1 ? "s" : ""} assigned to ${tech.name}` });
+      setSelectedIds(new Set());
+      setBulkTechId("");
+    } catch {
+      toast({ title: "Error assigning tasks", variant: "destructive" });
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  // ── Sort / Filter ─────────────────────────────────────────────────────
+  const counts = {
+    all: tasks.length,
+    todo: tasks.filter((t) => t.status === "todo").length,
+    "in-progress": tasks.filter((t) => t.status === "in-progress").length,
+    done: tasks.filter((t) => t.status === "done").length,
   };
-  const filtered = (filter === "all" ? tasks : tasks.filter((t) => t.status === filter)).sort(byDate);
+
+  const getArea = (task: Task) => {
+    const addr = customerMap.get(task.customerId ?? "")?.address ?? "";
+    if (!addr) return "zzz_no_area";
+    // Extract area: split by comma, take the third part (index 2) or last meaningful segment
+    const parts = addr.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[2] ?? parts[1] ?? parts[0] ?? "zzz_no_area";
+  };
+
+  const sorters: Record<SortKey, (a: Task, b: Task) => number> = {
+    "due-date": (a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    },
+    priority: (a, b) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2),
+    area: (a, b) => getArea(a).localeCompare(getArea(b)),
+    customer: (a, b) => (a.customerName ?? "").localeCompare(b.customerName ?? ""),
+  };
+
+  const filtered = (filter === "all" ? tasks : tasks.filter((t) => t.status === filter))
+    .slice()
+    .sort(sorters[sortKey]);
 
   const isOverdue = (task: Task) => task.dueDate && task.status !== "done" && new Date(task.dueDate) < new Date();
+
+  // Group label for area sort
+  function areaGroupLabel(task: Task) {
+    const area = getArea(task);
+    return area === "zzz_no_area" ? "No Area" : area;
+  }
+
+  // When sorting by area/customer, group visually
+  const showGroupHeaders = sortKey === "area" || sortKey === "customer";
+  let lastGroupKey = "";
+
+  const allSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   return (
     <Layout>
@@ -182,20 +269,37 @@ export default function TasksPage() {
           </Button>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-5 w-fit">
-          {(["all", "todo", "in-progress", "done"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                filter === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {s === "all" ? "All" : STATUS_CONFIG[s].label}
-              <span className="ml-1.5 text-xs opacity-60">{counts[s]}</span>
-            </button>
-          ))}
+        {/* Filter tabs + Sort */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+            {(["all", "todo", "in-progress", "done"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  filter === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {s === "all" ? "All" : STATUS_CONFIG[s].label}
+                <span className="ml-1.5 text-xs opacity-60">{counts[s]}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="due-date">By Due Date</SelectItem>
+                <SelectItem value="priority">By Priority</SelectItem>
+                <SelectItem value="area">By Area</SelectItem>
+                <SelectItem value="customer">By Customer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {loading ? (
@@ -208,90 +312,159 @@ export default function TasksPage() {
             {filter === "all" && <Button onClick={openAdd} variant="outline" className="mt-4 gap-2"><Plus className="w-4 h-4" /> New Task</Button>}
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map((task) => {
-              const overdue = isOverdue(task);
-              return (
-                <div key={task.id} className={cn("rounded-xl border bg-card p-4 flex items-start gap-3 hover:border-primary/30 transition-colors", overdue && "border-red-200 bg-red-50/30")}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={cn("font-medium leading-tight", task.status === "done" && "line-through text-muted-foreground")}>{task.title}</p>
+          <>
+            {/* Select-all row */}
+            {!isTechnician && (
+              <div className="flex items-center gap-2 px-1 mb-2">
+                <Checkbox
+                  checked={allSelected}
+                  data-state={someSelected ? "indeterminate" : allSelected ? "checked" : "unchecked"}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all tasks"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Select all"}
+                </span>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              {filtered.map((task) => {
+                const overdue = isOverdue(task);
+                const isSelected = selectedIds.has(task.id);
+
+                // Group header for area/customer sort
+                const groupKey = sortKey === "area" ? areaGroupLabel(task) : (task.customerName ?? "No Customer");
+                const showHeader = showGroupHeaders && groupKey !== lastGroupKey;
+                if (showGroupHeaders) lastGroupKey = groupKey;
+
+                return (
+                  <React.Fragment key={task.id}>
+                    {showHeader && (
+                      <div className="flex items-center gap-2 pt-3 pb-1 px-1">
+                        {sortKey === "area" ? <MapPin className="w-3.5 h-3.5 text-primary/60" /> : <User className="w-3.5 h-3.5 text-primary/60" />}
+                        <span className="text-xs font-semibold text-primary/70 uppercase tracking-wide">{groupKey}</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "rounded-xl border bg-card p-4 flex items-start gap-3 transition-colors",
+                      overdue ? "border-red-200 bg-red-50/30" : "hover:border-primary/30",
+                      isSelected && "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                    )}>
+                      {!isTechnician && (
+                        <div className="mt-0.5 shrink-0">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(task.id)}
+                            aria-label={`Select task ${task.title}`}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn("font-medium leading-tight", task.status === "done" && "line-through text-muted-foreground")}>{task.title}</p>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={cn("flex items-center gap-1 text-xs font-medium", PRIORITY_CONFIG[task.priority].color)}>
+                              <span className={cn("w-1.5 h-1.5 rounded-full", PRIORITY_CONFIG[task.priority].dot)} />
+                              {PRIORITY_CONFIG[task.priority].label}
+                            </span>
+                          </div>
+                        </div>
+                        {task.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {task.customerName && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground"><User className="w-3 h-3" />{task.customerName}</span>
+                          )}
+                          {sortKey === "area" && task.customerId && customerMap.get(task.customerId)?.address && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground/70 italic">
+                              <MapPin className="w-3 h-3" />{areaGroupLabel(task)}
+                            </span>
+                          )}
+                          {task.dueDate && (
+                            <span className={cn("flex items-center gap-1 text-xs", overdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
+                              {overdue && <AlertTriangle className="w-3 h-3" />}
+                              Due {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          <Select value={task.status} onValueChange={(v) => handleStatusChange(task, v as Task["status"])}>
+                            <SelectTrigger className={cn("h-6 text-xs px-2 gap-1 border rounded-full w-auto", STATUS_CONFIG[task.status].bg, STATUS_CONFIG[task.status].color)}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="todo">To Do</SelectItem>
+                              <SelectItem value="in-progress">In Progress</SelectItem>
+                              <SelectItem value="done">Done</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {!isTechnician && technicians.length > 0 && (
+                            <Select value={task.assignedTo || "unassigned"} onValueChange={(v) => handleAssignTech(task, v)}>
+                              <SelectTrigger className={cn(
+                                "h-6 text-xs px-2 gap-1 border rounded-full w-auto min-w-[110px] max-w-[160px]",
+                                task.assignedTo ? "border-primary/40 bg-primary/5 text-primary" : "border-dashed text-muted-foreground"
+                              )}>
+                                <UserCheck className="w-3 h-3 shrink-0" />
+                                <SelectValue placeholder="Assign…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {technicians.filter((t) => t.status === "active").map((t) => (
+                                  <SelectItem key={t.id} value={t.id}>{t.name}{t.specialization ? ` — ${t.specialization}` : ""}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {isTechnician && task.assignedToName && (
+                            <span className="flex items-center gap-1 text-xs text-primary"><Wrench className="w-3 h-3" />{task.assignedToName}</span>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className={cn("flex items-center gap-1 text-xs font-medium", PRIORITY_CONFIG[task.priority].color)}>
-                          <span className={cn("w-1.5 h-1.5 rounded-full", PRIORITY_CONFIG[task.priority].dot)} />
-                          {PRIORITY_CONFIG[task.priority].label}
-                        </span>
+                        <button onClick={() => openEdit(task)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setDeleteId(task.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                    {task.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{task.description}</p>}
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      {task.customerName && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><User className="w-3 h-3" />{task.customerName}</span>
-                      )}
-                      {task.dueDate && (
-                        <span className={cn("flex items-center gap-1 text-xs", overdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
-                          {overdue && <AlertTriangle className="w-3 h-3" />}
-                          Due {new Date(task.dueDate).toLocaleDateString()}
-                        </span>
-                      )}
-                      <Select
-                        value={task.status}
-                        onValueChange={(v) => handleStatusChange(task, v as Task["status"])}
-                      >
-                        <SelectTrigger className={cn(
-                          "h-6 text-xs px-2 gap-1 border rounded-full w-auto",
-                          STATUS_CONFIG[task.status].bg,
-                          STATUS_CONFIG[task.status].color
-                        )}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todo">To Do</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {!isTechnician && technicians.length > 0 && (
-                        <Select
-                          value={task.assignedTo || "unassigned"}
-                          onValueChange={(v) => handleAssignTech(task, v)}
-                        >
-                          <SelectTrigger className={cn(
-                            "h-6 text-xs px-2 gap-1 border rounded-full w-auto min-w-[110px] max-w-[160px]",
-                            task.assignedTo ? "border-primary/40 bg-primary/5 text-primary" : "border-dashed text-muted-foreground"
-                          )}>
-                            <UserCheck className="w-3 h-3 shrink-0" />
-                            <SelectValue placeholder="Assign…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {technicians.filter((t) => t.status === "active").map((t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.name}{t.specialization ? ` — ${t.specialization}` : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      {isTechnician && task.assignedToName && (
-                        <span className="flex items-center gap-1 text-xs text-primary"><Wrench className="w-3 h-3" />{task.assignedToName}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => openEdit(task)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => setDeleteId(task.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
+
+      {/* ── Bulk-assign floating bar ─────────────────────────────────────── */}
+      {selectedIds.size > 0 && !isTechnician && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border shadow-xl rounded-2xl px-4 py-3 animate-in slide-in-from-bottom-4 duration-200">
+          <span className="text-sm font-medium text-foreground shrink-0">
+            {selectedIds.size} task{selectedIds.size > 1 ? "s" : ""} selected
+          </span>
+          <div className="w-px h-5 bg-border" />
+          <Select value={bulkTechId} onValueChange={setBulkTechId}>
+            <SelectTrigger className="h-8 text-sm w-48">
+              <SelectValue placeholder="Pick technician…" />
+            </SelectTrigger>
+            <SelectContent>
+              {technicians.filter((t) => t.status === "active").map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}{t.specialization ? ` — ${t.specialization}` : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={handleBulkAssign} disabled={!bulkTechId || bulkSaving} className="shrink-0">
+            {bulkSaving ? "Assigning…" : "Assign"}
+          </Button>
+          <button
+            onClick={() => { setSelectedIds(new Set()); setBulkTechId(""); }}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
