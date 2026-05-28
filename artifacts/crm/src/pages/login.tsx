@@ -43,7 +43,7 @@ export default function LoginPage() {
           <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
             <Building2 className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-white">ClearCRM</span>
+          <span className="text-xl font-bold text-white">Marwo</span>
         </div>
         <div>
           <blockquote className="text-sidebar-foreground/80 text-lg leading-relaxed">
@@ -52,7 +52,7 @@ export default function LoginPage() {
           <p className="mt-4 text-sm text-sidebar-foreground/50">— A satisfied business owner</p>
         </div>
         <p className="text-sidebar-foreground/30 text-xs">
-          &copy; {new Date().getFullYear()} ClearCRM
+          &copy; {new Date().getFullYear()} Marwo
         </p>
       </div>
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Building2 className="w-4 h-4 text-white" />
             </div>
-            <span className="text-lg font-bold">ClearCRM</span>
+            <span className="text-lg font-bold">Marwo</span>
           </div>
 
           <div className="mb-8">

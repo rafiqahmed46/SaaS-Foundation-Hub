@@ -171,7 +171,7 @@ export default function AdminPage() {
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">ClearCRM Super Admin</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Marwo Super Admin</h1>
             <p className="text-xs text-gray-500">{user?.email}</p>
           </div>
           <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">Admin</Badge>

@@ -136,7 +136,7 @@ export default function PricingPage() {
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
             <span className="text-white font-bold text-sm">C</span>
           </div>
-          <span className="font-semibold text-gray-900 text-lg">ClearCRM</span>
+          <span className="font-semibold text-gray-900 text-lg">Marwo</span>
         </div>
         <div className="flex items-center gap-3">
           {user ? (

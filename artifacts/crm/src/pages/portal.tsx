@@ -370,7 +370,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground">Powered by ClearCRM</p>
+        <p className="text-center text-xs text-muted-foreground">Powered by Marwo</p>
       </div>
     </div>
   );

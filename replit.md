@@ -1,4 +1,4 @@
-# ClearCRM
+# Marwo
 
 A modern SaaS CRM for small businesses to manage customers, invoices, and company settings — built with React, Firebase Auth, and Firestore.
 

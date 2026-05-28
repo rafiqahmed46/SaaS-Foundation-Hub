@@ -169,7 +169,7 @@ function ColumnMapper({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Match your CSV columns to ClearCRM fields. Required fields must be mapped.</p>
+      <p className="text-sm text-muted-foreground">Match your CSV columns to Marwo fields. Required fields must be mapped.</p>
       <div className="grid gap-2">
         {fields.map((f) => (
           <div key={f.key} className="flex items-center gap-3">
@@ -783,7 +783,7 @@ export default function ImportPage() {
               <li>Import <strong>Notes</strong> (they link to your customers by name)</li>
               <li>Import <strong>Tasks</strong></li>
             </ol>
-            <p className="text-xs text-blue-600 mt-2">Invoices are complex (multiple line items per invoice) — for now, re-create important ones manually in ClearCRM.</p>
+            <p className="text-xs text-blue-600 mt-2">Invoices are complex (multiple line items per invoice) — for now, re-create important ones manually in Marwo.</p>
           </CardContent>
         </Card>
 

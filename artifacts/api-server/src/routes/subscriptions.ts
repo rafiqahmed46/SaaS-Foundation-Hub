@@ -37,7 +37,7 @@ async function getPromoConfig(): Promise<PromoConfig | null> {
 }
 
 async function getOrCreatePromoCoupon(stripe: Stripe, percentOff: number, durationMonths: number): Promise<string> {
-  const couponId = `clearcrm-${percentOff}off-${durationMonths}months`;
+  const couponId = `marwo-${percentOff}off-${durationMonths}months`;
   try {
     const existing = await stripe.coupons.retrieve(couponId);
     if (existing.valid) return existing.id;
@@ -122,7 +122,7 @@ router.post("/subscriptions/checkout", async (req: Request, res: Response) => {
           price_data: {
             currency: plan.currency,
             product_data: {
-              name: `ClearCRM ${plan.name}`,
+              name: `Marwo ${plan.name}`,
               description: plan.description,
             },
             unit_amount: plan.price,

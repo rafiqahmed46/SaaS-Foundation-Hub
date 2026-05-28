@@ -575,7 +575,7 @@ export default function SettingsPage() {
                 <Zap className="w-5 h-5 text-primary" />
                 <CardTitle className="text-base">Subscription & Billing</CardTitle>
               </div>
-              <CardDescription>Manage your ClearCRM subscription plan.</CardDescription>
+              <CardDescription>Manage your Marwo subscription plan.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">

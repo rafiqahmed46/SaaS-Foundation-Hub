@@ -99,7 +99,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     try {
       await completeSetup(companyName.trim());
       setSetupOpen(false); setCompanyName("");
-      toast({ title: "Setup complete! Welcome to ClearCRM." });
+      toast({ title: "Setup complete! Welcome to Marwo." });
     } catch { toast({ title: "Setup failed", description: "Check your Firestore rules and try again.", variant: "destructive" }); }
     finally { setSettingUp(false); }
   }
@@ -142,7 +142,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Building2 className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">ClearCRM</span>
+          <span className="font-bold text-lg tracking-tight text-white">Marwo</span>
           {mobile && (
             <button onClick={() => setMobileOpen(false)} className="ml-auto text-sidebar-foreground/60 hover:text-white">
               <X className="w-5 h-5" />
@@ -232,7 +232,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
               <Building2 className="w-3 h-3 text-white" />
             </div>
-            <span className="font-bold text-sm">ClearCRM</span>
+            <span className="font-bold text-sm">Marwo</span>
           </div>
         </header>
 
