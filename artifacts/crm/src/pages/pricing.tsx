@@ -3,7 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Building2, Briefcase, ArrowLeft, Tag } from "lucide-react";
+import { Check, Zap, Briefcase, ArrowLeft, Tag } from "lucide-react";
+import { MarwoMark } from "@/components/MarwoLogo";
 import { useToast } from "@/hooks/use-toast";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -62,7 +63,7 @@ const PLANS = [
     price: 199,
     currency: "AED",
     description: "For established companies with full needs",
-    icon: Building2,
+    icon: Briefcase,
     color: "border-gray-200",
     badge: null as string | null,
     features: [
@@ -132,10 +133,8 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <MarwoMark size={32} />
           <span className="font-semibold text-gray-900 text-lg">Marwo</span>
         </div>
         <div className="flex items-center gap-3">

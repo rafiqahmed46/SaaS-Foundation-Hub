@@ -4,6 +4,7 @@ import { addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getInvoice, Invoice, getSettings, Settings } from "@/lib/firestore";
 import { Building2, Download, CreditCard, CheckCircle2 } from "lucide-react";
+import { MarwoMark } from "@/components/MarwoLogo";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -136,9 +137,7 @@ export default function PortalPage() {
       <div className="bg-white border-b">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <MarwoMark size={30} />
             <span className="font-bold text-sm">{settings?.companyName || "Invoice"}</span>
           </div>
           <div className="flex items-center gap-2">

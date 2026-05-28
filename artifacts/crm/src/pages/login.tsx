@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { MarwoWordmark, MarwoMark } from "@/components/MarwoLogo";
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
@@ -39,20 +40,25 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-background">
       {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-between w-2/5 bg-sidebar p-12">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
+        <MarwoWordmark size={40} />
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-2xl font-bold text-white leading-snug">Run your field service<br />business from one place.</h2>
+            <p className="mt-3 text-sidebar-foreground/60 text-sm leading-relaxed">Customers, invoices, work orders, AMC contracts, and your team — all connected.</p>
           </div>
-          <span className="text-xl font-bold text-white">Marwo</span>
-        </div>
-        <div>
-          <blockquote className="text-sidebar-foreground/80 text-lg leading-relaxed">
-            "A beautifully simple CRM that keeps our team focused on what matters — the customers."
-          </blockquote>
-          <p className="mt-4 text-sm text-sidebar-foreground/50">— A satisfied business owner</p>
+          <div className="space-y-4">
+            {["Customers & Invoices", "Work Orders & Assets", "AMC Contracts", "Team Dispatch"].map((f) => (
+              <div key={f} className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-orange-400 text-xs font-bold">✓</span>
+                </div>
+                <span className="text-sidebar-foreground/75 text-sm">{f}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <p className="text-sidebar-foreground/30 text-xs">
-          &copy; {new Date().getFullYear()} Marwo
+          &copy; {new Date().getFullYear()} Marwo · Field Service Made Simple
         </p>
       </div>
 
@@ -61,9 +67,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <MarwoMark size={32} />
             <span className="text-lg font-bold">Marwo</span>
           </div>
 

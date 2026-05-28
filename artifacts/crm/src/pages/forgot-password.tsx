@@ -5,7 +5,8 @@ import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { MarwoWordmark } from "@/components/MarwoLogo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -30,11 +31,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-10">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-lg font-bold">Marwo</span>
+        <div className="mb-10">
+          <MarwoWordmark size={32} dark />
         </div>
 
         {sent ? (

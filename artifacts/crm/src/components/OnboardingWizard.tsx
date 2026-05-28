@@ -13,6 +13,7 @@ import {
   Building2, Settings, Users, CheckCircle2, ChevronRight, ChevronLeft,
   Phone, MapPin, Globe, FileText, Percent, Tag, Sparkles, ArrowRight,
 } from "lucide-react";
+import { MarwoMark } from "@/components/MarwoLogo";
 
 const CURRENCIES = [
   { value: "AED", label: "AED — UAE Dirham" },
@@ -140,9 +141,7 @@ export default function OnboardingWizard({ onComplete }: Props) {
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-6 pt-6 pb-4">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <MarwoMark size={28} />
             <span className="text-white font-bold text-base">Marwo</span>
           </div>
           <h2 className="text-white text-xl font-bold leading-tight">

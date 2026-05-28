@@ -3,10 +3,11 @@ import { Link, useLocation } from "wouter";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X,
-  Building2, AlertTriangle, ExternalLink, ClipboardList, CheckSquare,
+  AlertTriangle, ExternalLink, ClipboardList, CheckSquare,
   RefreshCw, Upload, Wallet, Wrench, ClipboardCheck, Box,
   FileCheck, BarChart3, CalendarDays, ChevronDown, ChevronRight, ShieldCheck,
 } from "lucide-react";
+import { MarwoMark } from "@/components/MarwoLogo";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -141,10 +142,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return (
       <div className={cn("flex flex-col h-full bg-sidebar text-sidebar-foreground", mobile ? "w-72" : "w-64")}>
         <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-white" />
+          <MarwoMark size={32} />
+          <div className="flex flex-col leading-none">
+            <span className="font-bold text-base tracking-tight text-white">Marwo</span>
+            <span className="text-[10px] text-sidebar-foreground/40 tracking-wide uppercase">Field Service</span>
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">Marwo</span>
           {mobile && (
             <button onClick={() => setMobileOpen(false)} className="ml-auto text-sidebar-foreground/60 hover:text-white">
               <X className="w-5 h-5" />
@@ -231,9 +233,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-              <Building2 className="w-3 h-3 text-white" />
-            </div>
+            <MarwoMark size={24} />
             <span className="font-bold text-sm">Marwo</span>
           </div>
         </header>

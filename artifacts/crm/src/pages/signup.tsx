@@ -6,7 +6,8 @@ import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { MarwoWordmark, MarwoMark } from "@/components/MarwoLogo";
 
 export default function SignupPage() {
   const [, navigate] = useLocation();
@@ -99,43 +100,32 @@ export default function SignupPage() {
     <div className="min-h-screen flex bg-background">
       {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-between w-2/5 bg-sidebar p-12">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
+        <MarwoWordmark size={40} />
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-2xl font-bold text-white leading-snug">Everything your field<br />service team needs.</h2>
+            <p className="mt-3 text-sidebar-foreground/60 text-sm leading-relaxed">From first call to final invoice — manage every job, customer, and contract in one place.</p>
           </div>
-          <span className="text-xl font-bold text-white">Marwo</span>
-        </div>
-        <div className="space-y-6">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-white">1</span>
-            </div>
-            <div>
-              <p className="text-white font-medium text-sm">Create your account</p>
-              <p className="text-sidebar-foreground/50 text-xs mt-0.5">Takes less than 2 minutes</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-white">2</span>
-            </div>
-            <div>
-              <p className="text-white font-medium text-sm">Add your customers</p>
-              <p className="text-sidebar-foreground/50 text-xs mt-0.5">Import or add manually</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-white">3</span>
-            </div>
-            <div>
-              <p className="text-white font-medium text-sm">Start sending invoices</p>
-              <p className="text-sidebar-foreground/50 text-xs mt-0.5">Professional PDFs in seconds</p>
-            </div>
+          <div className="space-y-4">
+            {[
+              { step: "1", title: "Create your account", sub: "Takes less than 2 minutes" },
+              { step: "2", title: "Set up your workspace", sub: "Company info, team, and settings" },
+              { step: "3", title: "Start managing jobs", sub: "Work orders, assets, invoices" },
+            ].map(({ step, title, sub }) => (
+              <div key={step} className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-orange-500/25 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-orange-400">{step}</span>
+                </div>
+                <div>
+                  <p className="text-white font-medium text-sm">{title}</p>
+                  <p className="text-sidebar-foreground/50 text-xs mt-0.5">{sub}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
         <p className="text-sidebar-foreground/30 text-xs">
-          &copy; {new Date().getFullYear()} Marwo
+          &copy; {new Date().getFullYear()} Marwo · Field Service Made Simple
         </p>
       </div>
 
@@ -143,9 +133,7 @@ export default function SignupPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <MarwoMark size={32} />
             <span className="text-lg font-bold">Marwo</span>
           </div>
 
