@@ -64,8 +64,14 @@ export default function DashboardPage() {
           totalRevenue,
           pendingRevenue,
         });
-      } catch (err) {
-        console.error(err);
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        setSummary(null);
+        if (code === "permission-denied") {
+          console.error("Firestore permission denied on dashboard load — check security rules");
+        } else {
+          console.error("Dashboard load error:", err);
+        }
       } finally {
         setLoading(false);
       }

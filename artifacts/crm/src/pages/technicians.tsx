@@ -51,10 +51,23 @@ export default function TechniciansPage() {
 
   async function load() {
     if (!user?.companyId) return;
-    const [techs, allTasks] = await Promise.all([getTechnicians(user.companyId), getTasks(user.companyId)]);
-    setTechnicians(techs);
-    setTasks(allTasks);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const [techs, allTasks] = await Promise.all([getTechnicians(user.companyId), getTasks(user.companyId)]);
+      setTechnicians(techs);
+      setTasks(allTasks);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      toast({
+        title: code === "permission-denied" ? "Firestore: Permission denied" : "Failed to load technicians",
+        description: code === "permission-denied"
+          ? "Your Firestore security rules are blocking reads. See the banner at the top."
+          : "Check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [user?.companyId]);

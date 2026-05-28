@@ -245,7 +245,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {needsSetup ? (
                 <span><span className="font-semibold">Company setup incomplete.</span>{" "}Your account exists but no company workspace was created yet. Click <strong>Complete Setup</strong> to finish.</span>
               ) : firestoreError === "permission-denied" ? (
-                <span><span className="font-semibold">Firestore rules blocking access.</span>{" "}In Firebase Console → Firestore → Rules, set:{" "}<code className="bg-amber-100 px-1 rounded text-xs font-mono">allow read, write: if request.auth != null;</code>{" "}(service must be <strong>cloud.firestore</strong>, not beta1). Then click Retry.</span>
+                <div className="space-y-1.5">
+                  <p><span className="font-semibold">Firestore security rules are blocking all reads.</span>{" "}Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">Firebase Console</a> → your project → Firestore Database → <strong>Rules</strong> tab, then paste these rules and click Publish:</p>
+                  <pre className="bg-amber-100 border border-amber-300 rounded px-3 py-2 text-xs font-mono leading-relaxed whitespace-pre select-all">{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}`}</pre>
+                  <p className="text-xs text-amber-700">After publishing the rules, click <strong>Retry</strong> on the right →</p>
+                </div>
               ) : (
                 <span><span className="font-semibold">Firestore not reachable.</span>{" "}Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">Firebase Console</a> → Firestore Database → Create database (test mode). Then click Retry.</span>
               )}

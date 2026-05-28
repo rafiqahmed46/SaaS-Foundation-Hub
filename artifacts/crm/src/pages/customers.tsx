@@ -72,6 +72,15 @@ export default function CustomersPage() {
     try {
       const data = await getCustomers(user.companyId);
       setCustomers(data);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      toast({
+        title: code === "permission-denied" ? "Firestore: Permission denied" : "Failed to load customers",
+        description: code === "permission-denied"
+          ? "Your Firestore security rules are blocking reads. See the banner at the top."
+          : "Check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

@@ -74,12 +74,25 @@ export default function TasksPage() {
 
   async function load() {
     if (!user?.companyId) return;
-    const [t, c, techs] = await Promise.all([getTasks(user.companyId), getCustomers(user.companyId), getTechnicians(user.companyId)]);
-    const visibleTasks = isTechnician && user.technicianId ? t.filter((task) => task.assignedTo === user.technicianId) : t;
-    setTasks(visibleTasks);
-    setCustomers(c);
-    setTechnicians(techs);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const [t, c, techs] = await Promise.all([getTasks(user.companyId), getCustomers(user.companyId), getTechnicians(user.companyId)]);
+      const visibleTasks = isTechnician && user.technicianId ? t.filter((task) => task.assignedTo === user.technicianId) : t;
+      setTasks(visibleTasks);
+      setCustomers(c);
+      setTechnicians(techs);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      toast({
+        title: code === "permission-denied" ? "Firestore: Permission denied" : "Failed to load tasks",
+        description: code === "permission-denied"
+          ? "Your Firestore security rules are blocking reads. See the banner at the top."
+          : "Check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [user?.companyId]);

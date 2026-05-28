@@ -78,6 +78,15 @@ export default function WorkOrdersPage() {
         getAssets(user.companyId),
       ]);
       setWorkOrders(wo); setCustomers(cust); setTechnicians(tech); setAssets(ast);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      toast({
+        title: code === "permission-denied" ? "Firestore: Permission denied" : "Failed to load work orders",
+        description: code === "permission-denied"
+          ? "Your Firestore security rules are blocking reads. See the banner at the top."
+          : "Check your connection and try again.",
+        variant: "destructive",
+      });
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, [user?.companyId]);
