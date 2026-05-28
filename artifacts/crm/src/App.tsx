@@ -34,6 +34,7 @@ import ContractDetailPage from "@/pages/contract-detail";
 import ReportsPage from "@/pages/reports";
 import CalendarPage from "@/pages/calendar";
 import PortalPage from "@/pages/portal";
+import AdminPage from "@/pages/admin";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,15 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (user) return <Redirect to="/dashboard" />;
+  return <Component />;
+}
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, loading } = useAuth();
+  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
+  if (loading) return <Spinner />;
+  if (!user) return <Redirect to="/login" />;
+  if (adminEmail && user.email !== adminEmail) return <Redirect to="/dashboard" />;
   return <Component />;
 }
 
@@ -96,6 +106,7 @@ function Router() {
       <Route path="/portal/:invoiceId" component={PortalPage} />
       <Route path="/import" component={() => <ProtectedRoute component={ImportPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
+      <Route path="/admin" component={() => <AdminRoute component={AdminPage} />} />
       <Route component={NotFound} />
     </Switch>
   );
