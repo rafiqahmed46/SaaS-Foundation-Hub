@@ -70,7 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [settingUp, setSettingUp] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const { user, firestoreError, needsSetup, refreshUser, completeSetup } = useAuth();
+  const { user, firestoreError, needsSetup, refreshUser, completeSetup, markOnboardingComplete } = useAuth();
   const { canAccess } = usePermissions();
   const { toast } = useToast();
 
@@ -267,7 +267,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-y-auto">{children}</main>
         {showOnboarding && (
-          <OnboardingWizard onComplete={() => { void refreshUser(); }} />
+          <OnboardingWizard onComplete={() => {
+            markOnboardingComplete();
+            void refreshUser();
+          }} />
         )}
       </div>
 

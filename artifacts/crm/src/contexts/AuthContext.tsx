@@ -20,6 +20,7 @@ interface AuthContextType {
   needsSetup: boolean;
   refreshUser: () => Promise<void>;
   completeSetup: (companyName: string) => Promise<void>;
+  markOnboardingComplete: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   needsSetup: false,
   refreshUser: async () => {},
   completeSetup: async () => {},
+  markOnboardingComplete: () => {},
 });
 
 async function fetchUserData(uid: string, email: string | null, displayName: string | null) {
@@ -90,6 +92,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [firebaseUser]);
 
+  const markOnboardingComplete = useCallback(() => {
+    setUser(prev => prev ? { ...prev, onboardingCompleted: true } : prev);
+  }, []);
+
   const completeSetup = useCallback(async (companyName: string) => {
     if (!firebaseUser) throw new Error("Not logged in");
     const companyRef = await addDoc(collection(db, "companies"), {
@@ -129,7 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [firebaseUser]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, firestoreError, needsSetup, refreshUser, completeSetup }}>
+    <AuthContext.Provider value={{ user, loading, firestoreError, needsSetup, refreshUser, completeSetup, markOnboardingComplete }}>
       {children}
     </AuthContext.Provider>
   );
